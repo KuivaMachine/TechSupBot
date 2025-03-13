@@ -26,6 +26,7 @@ public class TechSupBot extends TelegramLongPollingBot {
 
     public TechSupBot(TelegramBotConfig config) {
         super(config.getToken());
+        this.config = config;
         try {
             TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
             api.registerBot(this);
@@ -37,7 +38,7 @@ public class TechSupBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotUsername() {
-        return "MustHaveCase_bot.";
+        return "MustHaveCase_bot";
     }
 
 
