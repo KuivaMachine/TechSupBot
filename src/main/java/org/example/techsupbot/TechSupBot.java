@@ -1,5 +1,10 @@
 package org.example.techsupbot;
 
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.experimental.FieldDefaults;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
@@ -13,13 +18,14 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Component
 public class TechSupBot extends TelegramLongPollingBot {
 
+    TelegramBotConfig config;
 
-
-    public TechSupBot() {
-        super("7506623725:AAFAW1nwBtgLsO42nsVwCuyjhOkcYDiUnIA");
+    public TechSupBot(TelegramBotConfig config) {
+        super(config.getToken());
         try {
             TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
             api.registerBot(this);
