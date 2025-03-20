@@ -25,6 +25,7 @@ repositories {
 
 dependencies {
     implementation("io.github.cdimascio:java-dotenv:5.2.2")
+    implementation("org.springframework.data:spring-data-jpa:3.4.1")
     implementation("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
