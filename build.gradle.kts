@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.example"
-version = "0.0.1-SNAPSHOT"
+version = "0.0.1"
 
 java {
     toolchain {
@@ -25,13 +25,14 @@ repositories {
 
 dependencies {
     implementation("io.github.cdimascio:java-dotenv:5.2.2")
-    implementation("org.springframework.data:spring-data-jpa:3.4.1")
+
     implementation("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
     annotationProcessor("org.projectlombok:lombok")
     implementation("org.telegram:telegrambots:6.9.7.1")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
