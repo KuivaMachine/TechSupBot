@@ -2,29 +2,32 @@ package org.example.techsupbot;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 
 @Component
-public class TechSupBot extends TelegramLongPollingBot {
+public class TechSupBot extends TelegramWebhookBot {
 
     TelegramBotConfig config;
     MessageHandler handler;
-//    TelegramRestController controller;
+    TelegramRestController controller;
     public TechSupBot(TelegramBotConfig config, MessageHandler handler) {
         super(config.getToken());
         this.handler = handler;
         this.config = config;
         try {
-            TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
-            api.registerBot(this);
+//            TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
+//            api.registerBot(this);
             handler.registerBot(this);
-//            SetWebhook setWebhook = SetWebhook.builder().url(config.getUrl()).build();
-//            this.setWebhook(setWebhook);
+            SetWebhook setWebhook = SetWebhook.builder().url(config.getUrl()).build();
+            this.setWebhook(setWebhook);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -36,7 +39,7 @@ public class TechSupBot extends TelegramLongPollingBot {
     }
 
 
-    @Override
+   /* @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
            executeMessage(handler.processMessage(update.getMessage().getChatId(), update.getMessage()));
@@ -54,10 +57,10 @@ public class TechSupBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-    }
+    }*/
 
 
-   /* @Override
+    @Override
     public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
         return controller.receiveUpdate(update);
     }
@@ -65,7 +68,7 @@ public class TechSupBot extends TelegramLongPollingBot {
     @Override
     public String getBotPath() {
         return "/bot_tech_sup/update";
-    }*/
+    }
 }
 
 
