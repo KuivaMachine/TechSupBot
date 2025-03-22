@@ -20,7 +20,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     public Client findByChatId(long chatId) {
-        return clientRepo.findById(chatId).orElse(new Client(chatId, null, null, null, ClientStatus.SAVED));
+        return clientRepo.findById(chatId).orElse(new Client(chatId, null, null, null, ClientStatus.SAVED,false,false));
     }
 
     @Override

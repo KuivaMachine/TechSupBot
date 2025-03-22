@@ -32,6 +32,11 @@ public class Client {
     @Column(name = "status")
     ClientStatus status;
 
+    @Column(name="givenConstructorFeedback")
+    Boolean givenConstructorFeedback;
+
+    @Column(name="givenServiceFeedback")
+    Boolean givenServiceFeedback;
 
 
 }

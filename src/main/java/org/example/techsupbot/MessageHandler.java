@@ -22,12 +22,17 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Controller
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MessageHandler {
-    //git add . git commit -m "new" git push -u origin main
+    //git add .
+    // git commit -m "new"
+    // git push -u origin main
     private final Long managerChatId = 889218535L;
     private TechSupBot telegram;
     final ClientService clientService;
@@ -41,8 +46,9 @@ public class MessageHandler {
         Client currentclient = clientService.findByChatId(chatId);
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
+        message.setText(chatId.toString());
         if (text.equals("/start")) {
-            return sendWelcomeMessage(chatId);
+            return sendWelcomeMessage(currentclient,message);
         }
         if (text.equals("/delete_me")) {
             clientService.deleteClientByChatId(chatId);
@@ -64,8 +70,22 @@ public class MessageHandler {
             clientService.saveClient(currentclient);
             return fillReturnDataProcess(currentclient, message);
         }
+        if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK)) {
+            //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО СЕРВИСУ
+            message.setText("Спасибо за Ваш отзыв!");
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            return message;
+        }
+        if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR)) {
+            //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО КОНСТРУКТОРУ
+            message.setText("Спасибо за Ваш отзыв!");
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            return message;
+        }
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
-            return sendOrderQuestionProcess(update, message);
+            return sendOrderQuestionProcess(update, message, currentclient);
         }
         if (currentclient.getStatus().equals(ClientStatus.WAITING_IMAGE)) {
             message.setText("Чтобы добавить фото товара, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить фото\", а затем отправьте фотографию.");
@@ -83,28 +103,9 @@ public class MessageHandler {
             return sendDataToManager(currentclient, message);
         }
         if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
-            return sendWelcomeMessage(chatId);
-        } else {
-            //TODO: СДЕЛАТЬ ЛОГИКУ ОТВЕТА НА ПРОСТОЙ ВВОД ТЕКСТА
-            message.setChatId(chatId);
-            message.setText(chatId.toString());
+            return sendWelcomeMessage(currentclient, message);
         }
         return message;
-    }
-
-    private SendMessage sendOrderQuestionProcess(Message update, SendMessage message) {
-        SendMessage order = new SendMessage();
-        String question = String.format("Вопрос по заказу от пользователя @%s:\n", update.getFrom().getUserName());
-        order.setChatId(managerChatId);
-        order.setText(question+update.getText());
-        try {
-            telegram.execute(order);
-            message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-            return message;
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public SendMessage processCallback(Long chatId, String data) {
@@ -116,16 +117,23 @@ public class MessageHandler {
             case "wrong_item" -> sendWrongItemInstructions(currentclient, message);
             case "damaged_item" -> sendDamagedItemInstructions(currentclient, message);
             case "order_questions" -> sendOrderQuestionsMessage(currentclient, message);
-            case "create_case" -> sendCreateCaseMessage(chatId, message);
+            case "create_case" -> sendCreateCaseMessage(currentclient, message);
             case "join_group" -> sendJoinGroupMessage(chatId, message);
             case "promotions" -> sendPromotionsMessage(chatId, message);
             case "help_choice" -> sendHelpChoiceMessage(chatId, message);
+            case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message);
+            case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message);
+            case "5_stars_constructor", "4_stars_constructor" -> sendGoodAnswerToConstructor(currentclient, message);
+            case "3_stars_constructor", "2_stars_constructor", "1_stars_constructor" -> sendBadAnswerToConstructor(currentclient, message);
             default -> {
                 message.setText(data);
                 yield message;
             }
         };
     }
+
+
+
 
     public SendMessage processPhoto(Long chatId, List<PhotoSize> photos) {
         Client currentclient = clientService.findByChatId(chatId);
@@ -153,6 +161,161 @@ public class MessageHandler {
         return message;
     }
 
+    public void startTimerByServiceSupport(Client currentClient) {
+
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.schedule(() -> {
+            sendServiceQualityMessage(currentClient);
+        }, 24, TimeUnit.HOURS);
+        scheduler.shutdown();
+
+    }
+
+    public void startTimerByCaseConstructor(Client currentClient) {
+
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.schedule(() -> {
+            sendConstructorQualityMessage(currentClient);
+        }, 20, TimeUnit.SECONDS);
+        scheduler.shutdown();
+
+    }
+
+    private void sendConstructorQualityMessage(Client currentClient) {
+        SendMessage message = new SendMessage();
+        currentClient.setStatus(ClientStatus.WAITING_CONSTRUCTOR_QUALITY);
+        clientService.saveClient(currentClient);
+        message.setChatId(currentClient.getChatId());
+        message.setText("""
+                🎨 Понравился ли вам наш конструктор?
+               
+                Мы стараемся сделать процесс создания чехла максимально удобным и приятным. Пожалуйста, оцените ваш опыт по шкале от 1 до 5, где:
+                1 — совсем не понравилось
+                5 — все отлично!
+                
+                Как вам наш конструктор?
+                - Удобно ли было выбирать модель телефона и нашли ли свою модель?
+                - Легко ли было разобраться с функционалом?
+               
+                Просто выберите оценку ниже:
+                """);
+        message.setReplyMarkup(createInlineKeyboard(List.of(
+                new Pair<>("⭐️⭐️⭐️⭐️⭐️", "5_stars_constructor"),
+                new Pair<>("⭐️⭐️⭐️⭐️", "4_stars_constructor"),
+                new Pair<>("⭐️⭐️⭐️", "3_stars_constructor"),
+                new Pair<>("⭐️⭐️", "2_stars_constructor"),
+                new Pair<>("⭐️", "1_stars_constructor")
+        )));
+        try {
+            telegram.execute(message);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void sendServiceQualityMessage(Client currentClient) {
+        SendMessage message = new SendMessage();
+        currentClient.setStatus(ClientStatus.WAITING_SERVICE_QUALITY);
+        clientService.saveClient(currentClient);
+        message.setChatId(currentClient.getChatId());
+        message.setText("""
+                😊 Мы ценим ваше мнение!
+                Пожалуйста, помогите нам стать лучше — оцените качество обслуживания по шкале от 1 до 5, где:
+                1 — совсем недоволен
+                5 — все отлично!
+                
+                Как вам наша поддержка?
+                - Быстро ли мы ответили на ваш запрос?
+                - Удалось ли решить вашу проблему?
+                - Были ли наши сотрудники вежливы и внимательны?
+                
+                Просто выберите оценку ниже:
+                """);
+        message.setReplyMarkup(createInlineKeyboard(List.of(
+                new Pair<>("⭐️⭐️⭐️⭐️⭐️", "5_stars"),
+                new Pair<>("⭐️⭐️⭐️⭐️", "4_stars"),
+                new Pair<>("⭐️⭐️⭐️", "3_stars"),
+                new Pair<>("⭐️⭐️", "2_stars"),
+                new Pair<>("⭐️", "1_stars")
+        )));
+        try {
+            telegram.execute(message);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private SendMessage sendBadAnswer(Client currentclient, SendMessage message) {
+        if (currentclient.getStatus().equals(ClientStatus.WAITING_SERVICE_QUALITY)) {
+            message.setText("""
+                    🙏 Спасибо за честный отзыв!
+                    Нам очень жаль, что мы не оправдали ваших ожиданий.
+                    Пожалуйста, напишите, что именно нам стоит улучшить. Ваше мнение поможет нам стать лучше! 🙌
+                    """);
+            currentclient.setStatus(ClientStatus.WAITING_BAD_FEEDBACK);
+            clientService.saveClient(currentclient);
+            return message;
+        }
+        message.setText("Эта кнопка неактивна в данный момент)");
+        return message;
+    }
+    private SendMessage sendBadAnswerToConstructor(Client currentclient, SendMessage message) {
+        if (currentclient.getStatus().equals(ClientStatus.WAITING_CONSTRUCTOR_QUALITY)) {
+            message.setText("""
+                    🙏 Спасибо за честный отзыв!
+                    Нам очень жаль, что наш конструктор не оправдал ваших ожиданий.
+                    Пожалуйста, напишите, что именно нам стоит улучшить. Ваше мнение поможет нам стать лучше!
+                    """);
+            currentclient.setStatus(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR);
+            clientService.saveClient(currentclient);
+            return message;
+        }
+        message.setText("Эта кнопка неактивна в данный момент)");
+        return message;
+    }
+    private SendMessage sendGoodAnswer(Client currentclient, SendMessage message) {
+        //TODO:КУДА ТО ОТПРАВИТЬ ЭТИ ЗВЕЗДЫ
+        message.setText("""
+                🎉 Спасибо за высокую оценку!
+                Мы рады, что смогли вам помочь. Будем и дальше стараться радовать вас качественным сервисом!
+                """);
+        currentclient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentclient);
+        return message;
+    }
+
+    private SendMessage sendGoodAnswerToConstructor(Client currentclient, SendMessage message) {
+        //TODO:КУДА ТО ОТПРАВИТЬ ЭТИ ЗВЕЗДЫ
+        message.setText("""
+                🎉 Спасибо за высокую оценку!
+                Мы рады, что вам понравилось создавать чехол с нами.
+                Ждем вас снова за новыми уникальными дизайнами!
+                """);
+        currentclient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentclient);
+        return message;
+    }
+    private SendMessage sendOrderQuestionProcess(Message update, SendMessage message, Client currentClient) {
+        SendMessage order = new SendMessage();
+        String question = String.format("Вопрос по заказу от пользователя @%s:\n", update.getFrom().getUserName());
+        order.setChatId(managerChatId);
+        order.setText(question + update.getText());
+        try {
+            telegram.execute(order);
+            message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            currentClient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentClient);
+            if(!currentClient.getGivenServiceFeedback()){
+                startTimerByServiceSupport(currentClient);
+                currentClient.setGivenServiceFeedback(true);
+                clientService.saveClient(currentClient);
+            }
+            return message;
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+    }
     private SendMessage fillReturnDataProcess(Client currentclient, SendMessage message) {
         ArrayList<KeyboardRow> keyboard = new ArrayList<>();
         String text = "Отлично! Вам осталось добавить:\n";
@@ -169,7 +332,7 @@ public class MessageHandler {
             keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel()))));
         }
         if (currentclient.getDescription() != null && currentclient.getImage() != null && currentclient.getScreenshot() != null) {
-            message.setText("Все данные у нас, нажмите \"Отправить заявку на возврат или замену\"");
+            message.setText("Отлично! Теперь нажмите \"Отправить заявку на возврат или замену\"");
             currentclient.setStatus(ClientStatus.WAITING_SEND);
             clientService.saveClient(currentclient);
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.SEND.getLabel()))))));
@@ -214,6 +377,7 @@ public class MessageHandler {
             currentclient.setStatus(ClientStatus.SENT);
             clientService.saveClient(currentclient);
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            startTimerByServiceSupport(currentclient);
             return message;
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
@@ -230,20 +394,19 @@ public class MessageHandler {
     }
 
 
-    private SendMessage sendWelcomeMessage(Long chatId) {
-        SendMessage message = new SendMessage();
-        message.setChatId(chatId.toString());
+    private SendMessage sendWelcomeMessage(Client currentclient, SendMessage message) {
         message.setText("""
                 👋 Привет! Добро пожаловать в MustHaveCase!
-                Мы рады, что вы с нами! Здесь вы найдете стильные, надежные и уникальные чехлы для вашего телефона. А еще мы всегда готовы помочь с выбором или решить любой вопрос. \s
-                                
+                Мы рады, что вы с нами! Здесь вы найдете стильные, надежные и уникальные чехлы для вашего телефона. А еще мы всегда готовы помочь с выбором или решить любой вопрос.
+                
                 Что я могу для вас сделать?
                 - 🛠️ Помочь с сервисной поддержкой, если что-то пошло не так.
                 - 🎨 Помогу создать индивидуальный чехол.
                 - 💬 Пригласить в нашу группу, где вы найдете акции, новинки и общение с другими клиентами.
                 - 🛒 Рассказать о текущих акциях и скидках.
-                                
+                
                 Просто выберите нужную кнопку ниже, и я помогу вам! 😊""");
+        message.setReplyMarkup(new ReplyKeyboardRemove(true));
         message.setReplyMarkup(createInlineKeyboard(
                 List.of(
                         new Pair<>("🛠️ Сервисная поддержка", "service_support"),
@@ -322,8 +485,7 @@ public class MessageHandler {
         return message;
     }
 
-    private SendMessage sendCreateCaseMessage(Long chatId, SendMessage message) {
-        message.setChatId(chatId.toString());
+    private SendMessage sendCreateCaseMessage(Client currentClient, SendMessage message) {
         message.setText("""
                 Мы рады, что вы хотите создать что-то уникальное! Нажмите на кнопку ниже, и вы перейдете на наш сайт, где сможете:
                 - Выбрать модель телефона.
@@ -333,11 +495,16 @@ public class MessageHandler {
                 Это просто, быстро и увлекательно!
                 👇 Нажмите здесь, чтобы начать:
                 [Создать индивидуальный чехол](https://musthavecase.ru/product/cases/konstruktor-chehla)
-                                
+                
                 P.S. Создать можно не только индивидуальный чехол, а еще и обложку на паспорт, футболку, power bank и многое другое)
                 Если у вас возникнут вопросы, просто напишите нам — мы всегда готовы помочь! 😊
                 """);
         message.setParseMode("Markdown");
+        if(!currentClient.getGivenConstructorFeedback()){
+            startTimerByCaseConstructor(currentClient);
+            currentClient.setGivenConstructorFeedback(true);
+            clientService.saveClient(currentClient);
+        }
         return message;
     }
 
@@ -347,9 +514,9 @@ public class MessageHandler {
         message.setText("""
                 🎉 Отлично! 🎉
                 Спасибо, что решили вступить в нашу группу! Мы рады видеть вас среди наших участников.
-                                
+                
                 👉 Чтобы завершить процесс, просто перейдите по ссылке: https://t.me/MustHaveCase и нажмите кнопку "Подписаться".
-                                
+                
                 Добро пожаловать в нашу дружную команду! 🚀
                 """);
         message.setParseMode("Markdown");
