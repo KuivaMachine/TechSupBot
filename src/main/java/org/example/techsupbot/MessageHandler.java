@@ -30,9 +30,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MessageHandler {
-    //git add .
-    // git commit -m "фидбек"
-    // git push -u origin main
+
     private final Long managerChatId = 889218535L;
     private TechSupBot telegram;
     final ClientService clientService;
@@ -48,13 +46,16 @@ public class MessageHandler {
         message.setChatId(chatId);
         message.setText(chatId.toString());
         if (text.equals("/start")) {
-            return sendWelcomeMessage(currentclient,message);
+            return sendWelcomeMessage(message);
         }
         if (text.equals("/delete_me")) {
             clientService.deleteClientByChatId(chatId);
             message.setText("Клиент удален");
             message.setReplyMarkup(new ReplyKeyboardRemove(true));
             return message;
+        }
+        if (text.equals(ButtonLabels.CANCEL.getLabel())) {
+            return cancelProcess(currentclient, message);
         }
         if (text.equals(ButtonLabels.ATTACH_IMAGE.getLabel())) {
             return addImageProcess(currentclient, message);
@@ -103,7 +104,7 @@ public class MessageHandler {
             return sendDataToManager(currentclient, message);
         }
         if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
-            return sendWelcomeMessage(currentclient, message);
+            return sendWelcomeMessage( message);
         }
         return message;
     }
@@ -113,7 +114,7 @@ public class MessageHandler {
         message.setChatId(chatId);
         Client currentclient = clientService.findByChatId(chatId);
         return switch (data) {
-            case "service_support" -> sendServiceSupportMessage(chatId, message);
+            case "service_support" -> sendServiceSupportMessage(currentclient, message);
             case "wrong_item" -> sendWrongItemInstructions(currentclient, message);
             case "damaged_item" -> sendDamagedItemInstructions(currentclient, message);
             case "order_questions" -> sendOrderQuestionsMessage(currentclient, message);
@@ -131,8 +132,6 @@ public class MessageHandler {
             }
         };
     }
-
-
 
 
     public SendMessage processPhoto(Long chatId, List<PhotoSize> photos) {
@@ -160,7 +159,16 @@ public class MessageHandler {
         }
         return message;
     }
-
+    private SendMessage cancelProcess(Client currentclient, SendMessage message) {
+        message.setText("Заявка на возврат отменена.");
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+        currentclient.setDescription(null);
+        currentclient.setImage(null);
+        currentclient.setScreenshot(null);
+        currentclient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentclient);
+        return message;
+    }
     public void startTimerByServiceSupport(Client currentClient) {
 
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -176,7 +184,7 @@ public class MessageHandler {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendConstructorQualityMessage(currentClient);
-        }, 20, TimeUnit.SECONDS);
+        }, 24, TimeUnit.HOURS);
         scheduler.shutdown();
 
     }
@@ -339,6 +347,7 @@ public class MessageHandler {
             return message;
         }
         message.setText(text);
+        keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.CANCEL.getLabel()))));
         message.setReplyMarkup(createReplyKeyboard(keyboard));
         return message;
     }
@@ -394,7 +403,14 @@ public class MessageHandler {
     }
 
 
-    private SendMessage sendWelcomeMessage(Client currentclient, SendMessage message) {
+    private SendMessage sendWelcomeMessage(SendMessage message) {
+        message.setText("Главное меню");
+        message.setReplyMarkup(new ReplyKeyboardRemove(true));
+        try {
+            telegram.execute(message);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
         message.setText("""
                 👋 Привет! Добро пожаловать в MustHaveCase!
                 Мы рады, что вы с нами! Здесь вы найдете стильные, надежные и уникальные чехлы для вашего телефона. А еще мы всегда готовы помочь с выбором или решить любой вопрос.
@@ -406,7 +422,6 @@ public class MessageHandler {
                 - 🛒 Рассказать о текущих акциях и скидках.
                 
                 Просто выберите нужную кнопку ниже, и я помогу вам! 😊""");
-        message.setReplyMarkup(new ReplyKeyboardRemove(true));
         message.setReplyMarkup(createInlineKeyboard(
                 List.of(
                         new Pair<>("🛠️ Сервисная поддержка", "service_support"),
@@ -419,8 +434,9 @@ public class MessageHandler {
         return message;
     }
 
-    private SendMessage sendServiceSupportMessage(Long chatId, SendMessage message) {
-        message.setChatId(chatId.toString());
+    private SendMessage sendServiceSupportMessage(Client currentClient, SendMessage message) {
+        currentClient.setStatus(ClientStatus.SERVICE_SUPPORT);
+        clientService.saveClient(currentClient);
         message.setText("Спасибо, что обратились к нам! Пожалуйста, опишите вашу проблему, мы постараемся помочь вам как можно быстрее!");
         message.setReplyMarkup(createInlineKeyboard(
                 List.of(
@@ -449,7 +465,8 @@ public class MessageHandler {
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(
                             new KeyboardButton(ButtonLabels.ATTACH_IMAGE.getLabel()))),
                     new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_SCREEN.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel())))
+                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel()))),
+                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.CANCEL.getLabel())))
             )));
         }
         return message;
@@ -500,6 +517,7 @@ public class MessageHandler {
                 Если у вас возникнут вопросы, просто напишите нам — мы всегда готовы помочь! 😊
                 """);
         message.setParseMode("Markdown");
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
         if(!currentClient.getGivenConstructorFeedback()){
             startTimerByCaseConstructor(currentClient);
             currentClient.setGivenConstructorFeedback(true);
@@ -520,7 +538,7 @@ public class MessageHandler {
                 Добро пожаловать в нашу дружную команду! 🚀
                 """);
         message.setParseMode("Markdown");
-
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
         return message;
     }
 

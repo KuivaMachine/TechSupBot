@@ -13,21 +13,21 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 
 @Component
-public class TechSupBot extends TelegramWebhookBot {
+public class TechSupBot extends TelegramLongPollingBot {
 
     TelegramBotConfig config;
     MessageHandler handler;
-    TelegramRestController controller;
+   // TelegramRestController controller;
     public TechSupBot(TelegramBotConfig config, MessageHandler handler) {
         super(config.getToken());
         this.handler = handler;
         this.config = config;
         try {
-//            TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
-//            api.registerBot(this);
+            TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
+            api.registerBot(this);
             handler.registerBot(this);
-            SetWebhook setWebhook = SetWebhook.builder().url(config.getUrl()).build();
-            this.setWebhook(setWebhook);
+//            SetWebhook setWebhook = SetWebhook.builder().url(config.getUrl()).build();
+//            this.setWebhook(setWebhook);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -39,7 +39,7 @@ public class TechSupBot extends TelegramWebhookBot {
     }
 
 
-   /* @Override
+    @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
            executeMessage(handler.processMessage(update.getMessage().getChatId(), update.getMessage()));
@@ -57,10 +57,10 @@ public class TechSupBot extends TelegramWebhookBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-    }*/
+    }
 
 
-    @Override
+    /*@Override
     public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
         return controller.receiveUpdate(update);
     }
@@ -68,7 +68,7 @@ public class TechSupBot extends TelegramWebhookBot {
     @Override
     public String getBotPath() {
         return "/bot_tech_sup/update";
-    }
+    }*/
 }
 
 
