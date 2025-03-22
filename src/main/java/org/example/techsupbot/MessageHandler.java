@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MessageHandler {
     //git add .
-    // git commit -m "new"
+    // git commit -m "фидбек"
     // git push -u origin main
     private final Long managerChatId = 889218535L;
     private TechSupBot telegram;
