@@ -13,7 +13,8 @@ public enum ButtonLabels {
     ATTACH_SCREEN("Прикрепить скрин"),
     ATTACH_DESCRIPTION("Добавить описание"),
     SEND("Отправить заявку на возврат или замену"),
-    MAIN_MENU("Вернуться в главное меню"), CANCEL("Отмена");
+    MAIN_MENU("Вернуться в главное меню"), CANCEL("Отмена"),
+    CANCEL_ORDER_QUESTION("Я передумал писать");
     String label;
 
 

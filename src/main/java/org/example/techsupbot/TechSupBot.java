@@ -1,12 +1,12 @@
 package org.example.techsupbot;
 
+import org.example.techsupbot.redis.RedisService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
@@ -14,13 +14,14 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 @Component
 public class TechSupBot extends TelegramLongPollingBot {
-
+    RedisService redisService;
     TelegramBotConfig config;
     MessageHandler handler;
    // TelegramRestController controller;
-    public TechSupBot(TelegramBotConfig config, MessageHandler handler) {
+   public TechSupBot(TelegramBotConfig config, MessageHandler handler, RedisService redisService) {
         super(config.getToken());
         this.handler = handler;
+       this.redisService = redisService;
         this.config = config;
         try {
             TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
@@ -41,21 +42,43 @@ public class TechSupBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+        Message lastMessage;
         if (update.hasMessage() && update.getMessage().hasText()) {
-           executeMessage(handler.processMessage(update.getMessage().getChatId(), update.getMessage()));
+           lastMessage = executeMessage(handler.processMessage(update.getMessage().getChatId(), update.getMessage()));
+           if(lastMessage!=null){
+               redisService.saveLastMessageId(lastMessage.getChatId(), lastMessage.getMessageId());
+           }
         } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
-            executeMessage(handler.processPhoto(update.getMessage().getChatId(), update.getMessage().getPhoto()));
+            lastMessage = executeMessage(handler.processPhoto(update.getMessage().getChatId(), update.getMessage().getPhoto()));
+            if(lastMessage!=null){
+                redisService.saveLastMessageId(lastMessage.getChatId(), lastMessage.getMessageId());
+            }
         } else if (update.hasCallbackQuery()) {
-            executeMessage(handler.processCallback(update.getCallbackQuery().getMessage().getChatId(), update.getCallbackQuery().getData()));
+           lastMessage= executeMessage(handler.processCallback(update.getCallbackQuery().getMessage().getChatId(), update.getCallbackQuery().getData()));
+            if(lastMessage!=null){
+                redisService.saveLastMessageId(lastMessage.getChatId(), lastMessage.getMessageId());
+            }
         }
     }
 
 
-    private void executeMessage(SendMessage message) {
+    private Message executeMessage(SendMessage message) {
         try {
-            execute(message);
+            return execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
+        }
+        return null;
+    }
+
+    public void deleteLastMessage(Long chatId) {
+        DeleteMessage deleteMessage = new DeleteMessage();
+        deleteMessage.setChatId(chatId);
+        deleteMessage.setMessageId(Integer.parseInt(redisService.getLastMessageId(chatId)));
+        try {
+            execute(deleteMessage);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
         }
     }
 

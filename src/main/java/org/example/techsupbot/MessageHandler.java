@@ -86,7 +86,12 @@ public class MessageHandler {
             return message;
         }
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
-            return sendOrderQuestionProcess(update, message, currentclient);
+            if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
+                telegram.deleteLastMessage(chatId);
+                return sendWelcomeMessage(message);
+            }else{
+                return sendOrderQuestionProcess(update, message, currentclient);
+            }
         }
         if (currentclient.getStatus().equals(ClientStatus.WAITING_IMAGE)) {
             message.setText("Чтобы добавить фото товара, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить фото\", а затем отправьте фотографию.");
@@ -497,6 +502,7 @@ public class MessageHandler {
 
     private SendMessage sendOrderQuestionsMessage(Client currentClient, SendMessage message) {
         message.setText("Спасибо, что обратились к нам! Пожалуйста, опишите ваш вопрос:");
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel()))))));
         currentClient.setStatus(ClientStatus.ORDER_QUESTION);
         clientService.saveClient(currentClient);
         return message;
