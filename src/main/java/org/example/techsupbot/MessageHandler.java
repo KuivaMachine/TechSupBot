@@ -88,6 +88,8 @@ public class MessageHandler {
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
             if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
                 telegram.deleteLastMessage(chatId);
+                currentclient.setStatus(ClientStatus.SAVED);
+                clientService.saveClient(currentclient);
                 return sendWelcomeMessage(message);
             }else{
                 return sendOrderQuestionProcess(update, message, currentclient);
@@ -126,7 +128,7 @@ public class MessageHandler {
             case "create_case" -> sendCreateCaseMessage(currentclient, message);
             case "join_group" -> sendJoinGroupMessage(chatId, message);
             case "promotions" -> sendPromotionsMessage(chatId, message);
-            case "help_choice" -> sendHelpChoiceMessage(chatId, message);
+            case "cooperation" -> sendHelpChoiceMessage(chatId, message);
             case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message);
             case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message);
             case "5_stars_constructor", "4_stars_constructor" -> sendGoodAnswerToConstructor(currentclient, message);
@@ -433,7 +435,7 @@ public class MessageHandler {
                         new Pair<>("🎨 Создать индивидуальный чехол", "create_case"),
                         new Pair<>("💬 Вступить в группу", "join_group"),
                         new Pair<>("🛒 Акции и скидки", "promotions"),
-                        new Pair<>("❓ Помощь в выборе", "help_choice")
+                        new Pair<>("\uD83D\uDCBC Сотрудничество", "cooperation")
                 )
         ));
         return message;
@@ -557,10 +559,29 @@ public class MessageHandler {
     }
 
     private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
-        //TODO: СДЕЛАТЬ ЛОГИКУ ОТВЕТА НА КНОПКУ "ПОМОЩЬ В ВЫБОРЕ"
-
         message.setChatId(chatId);
-        message.setText("СДЕЛАТЬ ЛОГИКУ ОТВЕТА НА КНОПКУ \"ПОМОЩЬ В ВЫБОРЕ\"");
+        message.setText("""
+                Привет! 🌟
+                Мы всегда рады новым партнерствам! Вот направления, по которым мы сотрудничаем:
+                
+                1️⃣ [Для блогеров и инфлюэнсеров](https://musthavecase.ru/cooperation/)
+                   - Условия партнерских программ, рекламные интеграции и специальные предложения.
+                
+                2️⃣ [Для дизайнеров и иллюстраторов](https://musthavecase.ru/cooperation/)
+                   - Коллаборации, создание уникального контента и участие в проектах.
+                
+                3️⃣ [Для корпоративных клиентов](https://musthavecase.ru/cooperation/)
+                   - Индивидуальные решения для бизнеса, корпоративные подарки и спецпредложения.
+                
+                4️⃣ [Для оптовых клиентов](https://musthavecase.ru/cooperation/)
+                   - Выгодные условия закупок, скидки и персональный менеджер.
+               
+                5️⃣ [Для розничных и интернет-магазинов](https://musthavecase.ru/cooperation/)
+                   - Партнерские программы, дропшиппинг и совместные акции.
+                
+                👉 Выбери подходящий раздел или напиши, если остались вопросы. Мы с радостью обсудим детали!
+                """);
+        message.enableMarkdown(true);
         return message;
     }
 
