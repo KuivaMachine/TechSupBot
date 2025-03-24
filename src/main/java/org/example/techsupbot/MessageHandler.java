@@ -10,6 +10,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -44,7 +46,8 @@ public class MessageHandler {
         Client currentclient = clientService.findByChatId(chatId);
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
-        message.setText(chatId.toString());
+        message = setDefaultMessage(message);
+
         if (text.equals("/start")) {
             return sendWelcomeMessage(message);
         }
@@ -54,23 +57,29 @@ public class MessageHandler {
             message.setReplyMarkup(new ReplyKeyboardRemove(true));
             return message;
         }
+        //ЕСЛИ НАЖАЛИ КНОПКУ ОТМЕНИТЬ
         if (text.equals(ButtonLabels.CANCEL.getLabel())) {
             return cancelProcess(currentclient, message);
         }
+        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ ФОТО
         if (text.equals(ButtonLabels.ATTACH_IMAGE.getLabel())) {
             return addImageProcess(currentclient, message);
         }
+        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ СКРИН
         if (text.equals(ButtonLabels.ATTACH_SCREEN.getLabel())) {
             return addsScreenProcess(currentclient, message);
         }
+        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ ОПИСАНИЕ
         if (text.equals(ButtonLabels.ATTACH_DESCRIPTION.getLabel())) {
             return addDescriptionProcess(currentclient, message);
         }
+        //ЕСЛИ ОЖИДАЕТСЯ ОПИСАНИЕ
         if (currentclient.getStatus().equals(ClientStatus.WAITING_DESCRIPTION)) {
             currentclient.setDescription(text);
             clientService.saveClient(currentclient);
             return fillReturnDataProcess(currentclient, message);
         }
+        //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА СЕРВИС (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK)) {
             //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО СЕРВИСУ
             message.setText("Спасибо за Ваш отзыв!");
@@ -78,6 +87,7 @@ public class MessageHandler {
             clientService.saveClient(currentclient);
             return message;
         }
+        //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА КОНСТРУКТОР (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR)) {
             //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО КОНСТРУКТОРУ
             message.setText("Спасибо за Ваш отзыв!");
@@ -85,7 +95,9 @@ public class MessageHandler {
             clientService.saveClient(currentclient);
             return message;
         }
+        //ЕСЛИ СТАТУС "ВОПРОС ПО ЗАКАЗУ"
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
+            //ЕСЛИ НАЖАЛИ КНОПКУ Я ПЕРЕДУМАЛ ПИСАТЬ
             if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
                 telegram.deleteLastMessage(chatId);
                 currentclient.setStatus(ClientStatus.SAVED);
@@ -95,10 +107,12 @@ public class MessageHandler {
                 return sendOrderQuestionProcess(update, message, currentclient);
             }
         }
+        //ЕСЛИ КЛИЕНТ ВВОДИТ СООБЩЕНИЕ, ХОТЯ ОЖИДАЕТСЯ ФОТО
         if (currentclient.getStatus().equals(ClientStatus.WAITING_IMAGE)) {
             message.setText("Чтобы добавить фото товара, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить фото\", а затем отправьте фотографию.");
             return message;
         }
+        //ЕСЛИ КЛИЕНТ ВВОДИТ СООБЩЕНИЕ, ХОТЯ ОЖИДАЕТСЯ СКРИНШОТ
         if (currentclient.getStatus().equals(ClientStatus.WAITING_SCREEN)) {
             message.setText("Чтобы добавить скриншот личного кабинета, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить скрин\", а затем отправьте скриншот.");
             return message;
@@ -107,17 +121,22 @@ public class MessageHandler {
             message.setText("Чтобы оформить заявку, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку, а затем введите нужные данные)");
             return message;
         }
+        //ЕСЛИ КЛИЕНТ НАЖАЛ ОТПРАВИТЬ МЕНЕДЖЕРУ И У НЕГО СТАТУС "ОЖИДАЕТ ОТПРАВКИ"
         if (text.equals(ButtonLabels.SEND.getLabel()) && currentclient.getStatus().equals(ClientStatus.WAITING_SEND)) {
             return sendDataToManager(currentclient, message);
         }
+        //ЕСЛИ НАЖАЛ КНОПКУ "ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ
         if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
             return sendWelcomeMessage( message);
         }
         return message;
     }
 
-    public SendMessage processCallback(Long chatId, String data) {
+
+
+    public SendMessage processCallback(Update update, String data) {
         SendMessage message = new SendMessage();
+        long chatId = update.getCallbackQuery().getMessage().getChatId();
         message.setChatId(chatId);
         Client currentclient = clientService.findByChatId(chatId);
         return switch (data) {
@@ -129,6 +148,7 @@ public class MessageHandler {
             case "join_group" -> sendJoinGroupMessage(chatId, message);
             case "promotions" -> sendPromotionsMessage(chatId, message);
             case "cooperation" -> sendHelpChoiceMessage(chatId, message);
+            case "call_to_manager" -> callToManager(update.getCallbackQuery().getFrom().getUserName(), message);
             case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message);
             case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message);
             case "5_stars_constructor", "4_stars_constructor" -> sendGoodAnswerToConstructor(currentclient, message);
@@ -139,6 +159,7 @@ public class MessageHandler {
             }
         };
     }
+
 
 
     public SendMessage processPhoto(Long chatId, List<PhotoSize> photos) {
@@ -166,6 +187,46 @@ public class MessageHandler {
         }
         return message;
     }
+
+
+    private SendMessage setDefaultMessage(SendMessage message) {
+        message.setText("""
+                Конечно, я готов помочь! 😊
+                Если у тебя остались вопросы, вот что можно сделать:
+                
+                1️⃣ Связь с поддержкой
+                   - Если нужна помощь оператора, я могу подключить нашего специалиста.
+                
+                2️⃣ Часто задаваемые вопросы (FAQ)
+                   - Возможно, ответ уже есть в [нашем разделе FAQ](https://musthavecase.ru/faq)
+                
+                3️⃣ Написать напрямую директору
+                   - Если вопрос важный, пиши на почту: **support@musthavecase.ru**
+                   (Письма просматривает лично наш директор.)
+                
+                👉 Мы всегда рады помочь! Не стесняйся обращаться.
+                """);
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
+        message.enableMarkdown(true);
+        return message;
+    }
+
+
+    private SendMessage callToManager(String user, SendMessage message) {
+        SendMessage order = new SendMessage();
+        String question = String.format("Клиент @%s нажал кнопку \"Подключить специалиста\"", user);
+        order.setChatId(managerChatId);
+        order.setText(question);
+        try {
+            telegram.execute(order);
+            message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            return message;
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private SendMessage cancelProcess(Client currentclient, SendMessage message) {
         message.setText("Заявка на возврат отменена.");
         message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
@@ -551,10 +612,44 @@ public class MessageHandler {
     }
 
     private SendMessage sendPromotionsMessage(Long chatId, SendMessage message) {
-        //TODO: СДЕЛАТЬ ЛОГИКУ ОТВЕТА НА КНОПКУ "АКЦИИ И СКИДКИ"
-
         message.setChatId(chatId);
-        message.setText("СДЕЛАТЬ ЛОГИКУ ОТВЕТА НА КНОПКУ \"АКЦИИ И СКИДКИ\"");
+        message.setText("""
+                Привет! 🌟
+                Рады, что ты интересуешься нашими акциями и скидками! Вот что у нас сейчас есть:
+                
+                🎉 Текущие акции и скидки:
+                
+                1️⃣ Скидка 15% на заказ через сайт при подписке на наши соц. сети
+                   - Период действия: до 31 мая 2025 года.
+                
+                2️⃣ Бесплатная доставка при заказе от 5000 рублей
+                   - Акция действует для всех регионов России.
+                
+                3️⃣ Кэшбек 10% за фото с отметкой в Инстаграм
+                
+                👉 Чтобы узнать больше, [посетите наш сайт](https://musthavecase.ru)
+                """);
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+        InlineKeyboardButton telegram_but = new InlineKeyboardButton();
+        telegram_but.setText("Подписаться на Телеграмм");
+        telegram_but.setUrl("https://t.me/MustHaveCase");
+        InlineKeyboardButton wibes_but = new InlineKeyboardButton();
+        wibes_but.setText("Подписаться на Wibes");
+        wibes_but.setUrl("https://wibes.ru/author/90347");
+        InlineKeyboardButton vk_but = new InlineKeyboardButton();
+        vk_but.setText("Подписаться на Вконтакте");
+        vk_but.setUrl("https://vk.com/musthavecase_ru");
+        InlineKeyboardButton instagram_but = new InlineKeyboardButton();
+        instagram_but.setText("Подписаться на Инстаграмм");
+        instagram_but.setUrl("https://www.instagram.com/musthavecase.ru?igsh=dmE2OTNvdzV5dTVh");
+        keyboard.add(List.of(telegram_but));
+        keyboard.add(List.of(wibes_but));
+        keyboard.add(List.of(vk_but));
+        keyboard.add(List.of(instagram_but));
+        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+        keyboardMarkup.setKeyboard(keyboard);
+        message.setReplyMarkup(keyboardMarkup);
+        message.enableMarkdown(true);
         return message;
     }
 
@@ -582,6 +677,7 @@ public class MessageHandler {
                 👉 Выбери подходящий раздел или напиши, если остались вопросы. Мы с радостью обсудим детали!
                 """);
         message.enableMarkdown(true);
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
         return message;
     }
 

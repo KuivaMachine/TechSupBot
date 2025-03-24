@@ -54,7 +54,7 @@ public class TechSupBot extends TelegramLongPollingBot {
                 redisService.saveLastMessageId(lastMessage.getChatId(), lastMessage.getMessageId());
             }
         } else if (update.hasCallbackQuery()) {
-           lastMessage= executeMessage(handler.processCallback(update.getCallbackQuery().getMessage().getChatId(), update.getCallbackQuery().getData()));
+           lastMessage= executeMessage(handler.processCallback(update, update.getCallbackQuery().getData()));
             if(lastMessage!=null){
                 redisService.saveLastMessageId(lastMessage.getChatId(), lastMessage.getMessageId());
             }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+/*
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults (level = AccessLevel.PRIVATE, makeFinal = true)
@@ -23,8 +24,9 @@ public class TelegramRestController {
         } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
             return handler.processPhoto(update.getMessage().getChatId(), update.getMessage().getPhoto());
         } else if (update.hasCallbackQuery()) {
-            return handler.processCallback(update.getCallbackQuery().getMessage().getChatId(), update.getCallbackQuery().getData());
+            return handler.processCallback(update, update.getCallbackQuery().getData());
         }
         return null;
     }
 }
+*/
