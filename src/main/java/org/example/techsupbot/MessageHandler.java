@@ -11,7 +11,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -162,6 +161,7 @@ public class MessageHandler {
 
 
 
+
     public SendMessage processPhoto(Long chatId, List<PhotoSize> photos) {
         Client currentclient = clientService.findByChatId(chatId);
         SendMessage message = new SendMessage();
@@ -238,7 +238,6 @@ public class MessageHandler {
         return message;
     }
     public void startTimerByServiceSupport(Client currentClient) {
-
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendServiceQualityMessage(currentClient);
@@ -382,9 +381,9 @@ public class MessageHandler {
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
             currentClient.setStatus(ClientStatus.SAVED);
             clientService.saveClient(currentClient);
-            if(!currentClient.getGivenServiceFeedback()){
+            if(!currentClient.getUsedService()){
                 startTimerByServiceSupport(currentClient);
-                currentClient.setGivenServiceFeedback(true);
+                currentClient.setUsedService(true);
                 clientService.saveClient(currentClient);
             }
             return message;
@@ -452,6 +451,7 @@ public class MessageHandler {
             telegram.execute(media);
             message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
             currentclient.setStatus(ClientStatus.SENT);
+            currentclient.setUsedService(true);
             clientService.saveClient(currentclient);
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
             startTimerByServiceSupport(currentclient);
@@ -587,14 +587,13 @@ public class MessageHandler {
                 """);
         message.setParseMode("Markdown");
         message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-        if(!currentClient.getGivenConstructorFeedback()){
+        if(!currentClient.getUsedConstructor()){
             startTimerByCaseConstructor(currentClient);
-            currentClient.setGivenConstructorFeedback(true);
+            currentClient.setUsedConstructor(true);
             clientService.saveClient(currentClient);
         }
         return message;
     }
-
     private SendMessage sendJoinGroupMessage(Long chatId, SendMessage message) {
 
         message.setChatId(chatId.toString());
