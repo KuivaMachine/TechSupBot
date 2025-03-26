@@ -1,4 +1,4 @@
-package org.example.techsupbot;
+package org.example.techsupbot.data;
 
 import lombok.Getter;
 

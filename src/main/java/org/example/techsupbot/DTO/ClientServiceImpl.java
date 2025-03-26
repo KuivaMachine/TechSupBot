@@ -3,9 +3,7 @@ package org.example.techsupbot.DTO;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.example.techsupbot.ClientStatus;
-import org.example.techsupbot.GoogleSheetsService;
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.example.techsupbot.data.ClientStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

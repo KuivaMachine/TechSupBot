@@ -1,4 +1,4 @@
-package org.example.techsupbot;
+package org.example.techsupbot.bot;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -6,6 +6,9 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.example.techsupbot.DTO.Client;
 import org.example.techsupbot.DTO.ClientService;
+import org.example.techsupbot.data.ButtonLabels;
+import org.example.techsupbot.data.ClientStatus;
+import org.example.techsupbot.googlesheets.GoogleSheetsService;
 import org.springframework.stereotype.Controller;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -50,9 +53,6 @@ public class MessageHandler {
         message.setChatId(chatId);
 
         switch (text) {
-            case "/start" -> {
-                return sendWelcomeMessage(currentclient, message);
-            }
             case "/delete_me" -> {
                 clientService.deleteClientByChatId(chatId);
                 message.setText("Клиент удален");
@@ -64,10 +64,6 @@ public class MessageHandler {
                 message.setText("Таблица обновлена");
                 return message;
             }
-        }
-        //ЕСЛИ НАЖАЛ КНОПКУ "ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ
-        if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
-            return sendWelcomeMessage(currentclient, message);
         }
         //ЕСЛИ НАЖАЛИ КНОПКУ ОТМЕНИТЬ
         if (text.equals(ButtonLabels.CANCEL.getLabel())) {
@@ -94,6 +90,7 @@ public class MessageHandler {
         //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА СЕРВИС (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK)) {
             message.setText("Спасибо за Ваш отзыв!");
+            message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
             currentclient.setStatus(ClientStatus.SAVED);
             currentclient.setServiceFeedback(text);
             clientService.saveClient(currentclient);
@@ -103,6 +100,7 @@ public class MessageHandler {
         //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА КОНСТРУКТОР (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR)) {
             message.setText("Спасибо за Ваш отзыв!");
+            message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
             currentclient.setStatus(ClientStatus.SAVED);
             currentclient.setConstructorFeedback(text);
             clientService.saveClient(currentclient);
@@ -114,9 +112,9 @@ public class MessageHandler {
             //ЕСЛИ НАЖАЛИ КНОПКУ Я ПЕРЕДУМАЛ ПИСАТЬ
             if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
                 telegram.deleteLastMessage(chatId);
-                currentclient.setStatus(ClientStatus.SAVED);
-                clientService.saveClient(currentclient);
-                return sendWelcomeMessage(currentclient, message);
+                message.setText("Хорошо, я все отменил \uD83D\uDC4D");
+                message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
+                return message;
             }else{
                 return sendOrderQuestionProcess(update, message, currentclient);
             }
@@ -219,8 +217,7 @@ public class MessageHandler {
                 
                 👉 Мы всегда рады помочь! Не стесняйся обращаться.
                 """);
-        //message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
-        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
         message.enableMarkdown(true);
         return message;
     }
@@ -371,6 +368,7 @@ public class MessageHandler {
                 🎉 Спасибо за высокую оценку!
                 Мы рады, что смогли вам помочь. Будем и дальше стараться радовать вас качественным сервисом!
                 """);
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
         currentclient.setStatus(ClientStatus.SAVED);
         clientService.saveClient(currentclient);
         googleSheetsService.updateTable(clientService.getAllClients());
@@ -384,6 +382,7 @@ public class MessageHandler {
                 Мы рады, что вам понравилось создавать чехол с нами.
                 Ждем вас снова за новыми уникальными дизайнами!
                 """);
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
         currentclient.setStatus(ClientStatus.SAVED);
         clientService.saveClient(currentclient);
         googleSheetsService.updateTable(clientService.getAllClients());
@@ -397,7 +396,7 @@ public class MessageHandler {
         try {
             telegram.execute(order);
             message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
             currentClient.setStatus(ClientStatus.SAVED);
             clientService.saveClient(currentClient);
             if(!currentClient.getUsedService()){
@@ -490,41 +489,10 @@ public class MessageHandler {
     }
 
 
-    private SendMessage sendWelcomeMessage(Client currentClient, SendMessage message) {
-        message.setText("Главное меню");
-        message.setReplyMarkup(new ReplyKeyboardRemove(true));
-        try {
-            telegram.execute(message);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
-        message.setText("""
-                👋 Привет! Добро пожаловать в MustHaveCase!
-                Мы рады, что вы с нами! Здесь вы найдете стильные, надежные и уникальные чехлы для вашего телефона. А еще мы всегда готовы помочь с выбором или решить любой вопрос.
-                
-                Что я могу для вас сделать?
-                - 🛠️ Помочь с сервисной поддержкой, если что-то пошло не так.
-                - 🎨 Помогу создать индивидуальный чехол.
-                - 💬 Пригласить в нашу группу, где вы найдете акции, новинки и общение с другими клиентами.
-                - 🛒 Рассказать о текущих акциях и скидках.
-                
-                Просто выберите нужную кнопку ниже, и я помогу вам! 😊""");
-        message.setReplyMarkup(createInlineKeyboard(
-                List.of(
-                        new Pair<>("🛠️ Сервисная поддержка", "service_support"),
-                        new Pair<>("🎨 Создать индивидуальный чехол", "create_case"),
-                        new Pair<>("💬 Вступить в группу", "join_group"),
-                        new Pair<>("🛒 Акции и скидки", "promotions"),
-                        new Pair<>("\uD83D\uDCBC Сотрудничество", "cooperation")
-                )
-        ));
-        currentClient.setStatus(ClientStatus.SAVED);
-        clientService.saveClient(currentClient);
 
-        return message;
-    }
 
     private SendMessage sendServiceSupportMessage(Client currentClient, SendMessage message) {
+        telegram.deleteLastMessage(currentClient.getChatId());
         currentClient.setStatus(ClientStatus.SERVICE_SUPPORT);
         clientService.saveClient(currentClient);
         message.setText("Спасибо, что обратились к нам! Пожалуйста, опишите вашу проблему, мы постараемся помочь вам как можно быстрее!");
@@ -532,7 +500,8 @@ public class MessageHandler {
                 List.of(
                         new Pair<>("Я получил не тот товар или дизайн", "wrong_item"),
                         new Pair<>("Товар поврежден или бракован", "damaged_item"),
-                        new Pair<>("Есть вопросы по заказу", "order_questions")
+                        new Pair<>("Есть вопросы по заказу", "order_questions"),
+                        new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu")
                 )
         ));
         return message;
@@ -594,6 +563,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendCreateCaseMessage(Client currentClient, SendMessage message) {
+        telegram.deleteLastMessage(currentClient.getChatId());
         message.setText("""
                 Мы рады, что вы хотите создать что-то уникальное! Нажмите на кнопку ниже, и вы перейдете на наш сайт, где сможете:
                 - Выбрать модель телефона.
@@ -617,7 +587,7 @@ public class MessageHandler {
         return message;
     }
     private SendMessage sendJoinGroupMessage(Long chatId, SendMessage message) {
-
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId.toString());
         message.setText("""
                 🎉 Отлично! 🎉
@@ -633,6 +603,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendPromotionsMessage(Long chatId, SendMessage message) {
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
@@ -663,10 +634,14 @@ public class MessageHandler {
         InlineKeyboardButton instagram_but = new InlineKeyboardButton();
         instagram_but.setText("Подписаться на Инстаграмм");
         instagram_but.setUrl("https://www.instagram.com/musthavecase.ru?igsh=dmE2OTNvdzV5dTVh");
+        InlineKeyboardButton main_menu = new InlineKeyboardButton();
+        main_menu.setText("Назад в главное меню \uD83D\uDD19");
+        main_menu.setCallbackData("main_menu");
         keyboard.add(List.of(telegram_but));
         keyboard.add(List.of(wibes_but));
         keyboard.add(List.of(vk_but));
         keyboard.add(List.of(instagram_but));
+        keyboard.add(List.of(main_menu));
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         keyboardMarkup.setKeyboard(keyboard);
         message.setReplyMarkup(keyboardMarkup);
@@ -675,6 +650,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
@@ -712,7 +688,7 @@ public class MessageHandler {
         return replyKeyboardMarkup;
     }
 
-    private InlineKeyboardMarkup createInlineKeyboard(List<Pair<String, String>> buttons) {
+    InlineKeyboardMarkup createInlineKeyboard(List<Pair<String, String>> buttons) {
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 

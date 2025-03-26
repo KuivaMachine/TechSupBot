@@ -4,7 +4,7 @@ package org.example.techsupbot.DTO;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import org.example.techsupbot.ClientStatus;
+import org.example.techsupbot.data.ClientStatus;
 
 @Entity
 @Table(name = "clients")

@@ -1,4 +1,4 @@
-package org.example.techsupbot;
+package org.example.techsupbot.googlesheets;
 
 
 import com.google.api.services.sheets.v4.Sheets;
@@ -8,9 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.example.techsupbot.DTO.Client;
 import org.example.techsupbot.DTO.SheetId;
-import org.example.techsupbot.DTO.SheetIdService;
+import org.example.techsupbot.data.RowColumn;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -29,7 +28,6 @@ public class GoogleSheetsService {
     private final Sheets sheetService;
     @Value("${google.spreadsheet_id}")
     private String SPREADSHEET_ID;
-    private final SheetIdService sheetIdService;
 
     @PostConstruct
     public void init() {
@@ -53,7 +51,6 @@ public class GoogleSheetsService {
         return createNewSheet(title);
     }
 
-
     private int generateSheetId() {
         Random random = new Random();
         int length = 3 + random.nextInt(5); // 7 + (0..4) = 7..11
@@ -75,7 +72,6 @@ public class GoogleSheetsService {
         batchUpdateRequest.setRequests(List.of(addSheet));
         try {
             sheetService.spreadsheets().batchUpdate(SPREADSHEET_ID, batchUpdateRequest).execute();
-            sheetIdService.saveSheetId(new SheetId(sheetId, sheetTitle));
             log.info(String.format("СОЗДАЛ И СОХРАНИЛ НОВУЮ ТАБЛИЦУ '%s', C ID %d", sheetTitle, sheetId));
         } catch (Exception e) {
             log.error(String.format("ОШИБКА ПРИ СОЗДАНИИ ТАБЛИЦЫ С ID %d - %s", sheetId, e.getMessage()));
@@ -83,22 +79,12 @@ public class GoogleSheetsService {
         return new SheetId(sheetId, sheetTitle);
     }
 
-    private String createNewSpreadSheet(String title) {
-        Spreadsheet newTable = new Spreadsheet()
-                .setProperties(new SpreadsheetProperties().setTitle(title));
-        try {
-            return sheetService.spreadsheets().create(newTable).execute().getSpreadsheetId();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void cleanTable(SheetId sheetId) {
 
         ClearValuesRequest clearValuesRequest = new ClearValuesRequest();
         try {
             sheetService.spreadsheets().values()
-                    .clear(SPREADSHEET_ID, String.format("%s!A:Z", sheetId.getTitle()), clearValuesRequest)
+                    .clear(SPREADSHEET_ID, String.format("%s!A:Z", sheetId.title()), clearValuesRequest)
                     .execute();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -109,7 +95,7 @@ public class GoogleSheetsService {
         Request clearFormatsRequest = new Request()
                 .setRepeatCell(new RepeatCellRequest()
                         .setRange(new GridRange()
-                                .setSheetId(sheetId.getSheetId())
+                                .setSheetId(sheetId.sheetId())
                                 .setStartRowIndex(0)
                                 .setEndRowIndex(100)
                                 .setStartColumnIndex(0)
@@ -132,7 +118,7 @@ public class GoogleSheetsService {
         int columnsCount = 1 + 8;
         // Очистка таблицы
         cleanTable(SHEET_ID);
-        int sheetId = SHEET_ID.getSheetId();
+        int sheetId = SHEET_ID.sheetId();
         // Создаем список запросов для пакетного обновления
         List<Request> requests = new ArrayList<>();
 
@@ -174,7 +160,6 @@ public class GoogleSheetsService {
                         .setSheetId(sheetId)
                         .setGridProperties(new GridProperties()
                                         .setFrozenRowCount(2)
-                                //.setFrozenColumnCount(frozenColumnCount)
                         ))
                 .setFields("gridProperties.frozenRowCount")));
 
@@ -190,13 +175,13 @@ public class GoogleSheetsService {
         List<ValueRange> data = new ArrayList<>();
         //ТИТУЛЬНИК
         data.add(new ValueRange()
-                .setRange(String.format("%s!B2", SHEET_ID.getTitle()))
+                .setRange(String.format("%s!B2", SHEET_ID.title()))
                 .setValues(List.of(List.of("Клиент", "Оформлял возврат", "Оценил сервис возврата", "Отзыв по сервису возврата", "Причина обращения", "Пользовался конструктором", "Оценил конструктор", "Отзыв по конструктору"))));
 
         for (int i = 0; i < clientsList.size(); i++) {
             Client client = clientsList.get(i);
             data.add(new ValueRange()
-                    .setRange(String.format("%s!B%d", SHEET_ID.getTitle(),i+3))
+                    .setRange(String.format("%s!B%d", SHEET_ID.title(),i+3))
                     .setValues(List.of(List.of(
                             client.getUsername()!=null?client.getUsername():"-",
                             client.getUsedService()?"Да":"Нет",
@@ -222,7 +207,7 @@ public class GoogleSheetsService {
                     .batchUpdate(SPREADSHEET_ID, batchRequest)
                     .execute();
         } catch (IOException e) {
-            log.error(String.format("НЕ УДАЛОСЬ ВЫПОЛНИТЬ ОБНОВЛЕНИЕ ОСНОВНЫХ ТЕКСТОВЫХ ПОЛЕЙ ТАБЛИЦЫ '%s' ПО ПРИЧИНЕ: %s", sheetId.getTitle(), e.getMessage()));
+            log.error(String.format("НЕ УДАЛОСЬ ВЫПОЛНИТЬ ОБНОВЛЕНИЕ ОСНОВНЫХ ТЕКСТОВЫХ ПОЛЕЙ ТАБЛИЦЫ '%s' ПО ПРИЧИНЕ: %s", sheetId.title(), e.getMessage()));
         }
     }
 

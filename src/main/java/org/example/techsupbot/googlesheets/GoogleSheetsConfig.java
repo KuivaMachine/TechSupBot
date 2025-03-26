@@ -1,4 +1,4 @@
-package org.example.techsupbot;
+package org.example.techsupbot.googlesheets;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
@@ -11,6 +11,7 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.example.techsupbot.TechSupBotApplication;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
