@@ -19,6 +19,9 @@ public class Client {
     @Column(name = "chat_id")
     Long chatId;
 
+    @Column(name = "username")
+    String username;
+
     @Column(name = "screenshot")
     String screenshot;
 
@@ -38,5 +41,16 @@ public class Client {
     @Column(name="usedService")
     Boolean usedService;
 
+    @Column(name = "service_mark")
+    Byte serviceMark;
+
+    @Column(name = "service_feedback")
+    String serviceFeedback;
+
+    @Column(name = "constructor_mark")
+    Byte constructorMark;
+
+    @Column(name = "constructor_feedback")
+    String constructorFeedback;
 
 }

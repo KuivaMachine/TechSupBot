@@ -3,6 +3,7 @@ package org.example.techsupbot;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.log4j.Log4j2;
 import org.example.techsupbot.DTO.Client;
 import org.example.techsupbot.DTO.ClientService;
 import org.springframework.stereotype.Controller;
@@ -27,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+@Log4j2
 @Controller
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -35,7 +37,7 @@ public class MessageHandler {
     private final Long managerChatId = 889218535L;
     private TechSupBot telegram;
     final ClientService clientService;
-
+    final GoogleSheetsService googleSheetsService;
     public void registerBot(TechSupBot telegram) {
         this.telegram = telegram;
     }
@@ -43,18 +45,29 @@ public class MessageHandler {
     public SendMessage processMessage(Long chatId, Message update) {
         String text = update.getText();
         Client currentclient = clientService.findByChatId(chatId);
+        currentclient.setUsername(update.getFrom().getUserName());
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
-        message = setDefaultMessage(message);
 
-        if (text.equals("/start")) {
-            return sendWelcomeMessage(message);
+        switch (text) {
+            case "/start" -> {
+                return sendWelcomeMessage(currentclient, message);
+            }
+            case "/delete_me" -> {
+                clientService.deleteClientByChatId(chatId);
+                message.setText("Клиент удален");
+                message.setReplyMarkup(new ReplyKeyboardRemove(true));
+                return message;
+            }
+            case "/update_table" -> {
+                googleSheetsService.updateTable(clientService.getAllClients());
+                message.setText("Таблица обновлена");
+                return message;
+            }
         }
-        if (text.equals("/delete_me")) {
-            clientService.deleteClientByChatId(chatId);
-            message.setText("Клиент удален");
-            message.setReplyMarkup(new ReplyKeyboardRemove(true));
-            return message;
+        //ЕСЛИ НАЖАЛ КНОПКУ "ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ
+        if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
+            return sendWelcomeMessage(currentclient, message);
         }
         //ЕСЛИ НАЖАЛИ КНОПКУ ОТМЕНИТЬ
         if (text.equals(ButtonLabels.CANCEL.getLabel())) {
@@ -80,18 +93,20 @@ public class MessageHandler {
         }
         //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА СЕРВИС (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK)) {
-            //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО СЕРВИСУ
             message.setText("Спасибо за Ваш отзыв!");
             currentclient.setStatus(ClientStatus.SAVED);
+            currentclient.setServiceFeedback(text);
             clientService.saveClient(currentclient);
+            googleSheetsService.updateTable(clientService.getAllClients());
             return message;
         }
         //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА КОНСТРУКТОР (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR)) {
-            //TODO: КУДА ТО ОТПРАВИТЬ ФИДБЕК ПО КОНСТРУКТОРУ
             message.setText("Спасибо за Ваш отзыв!");
             currentclient.setStatus(ClientStatus.SAVED);
+            currentclient.setConstructorFeedback(text);
             clientService.saveClient(currentclient);
+            googleSheetsService.updateTable(clientService.getAllClients());
             return message;
         }
         //ЕСЛИ СТАТУС "ВОПРОС ПО ЗАКАЗУ"
@@ -101,7 +116,7 @@ public class MessageHandler {
                 telegram.deleteLastMessage(chatId);
                 currentclient.setStatus(ClientStatus.SAVED);
                 clientService.saveClient(currentclient);
-                return sendWelcomeMessage(message);
+                return sendWelcomeMessage(currentclient, message);
             }else{
                 return sendOrderQuestionProcess(update, message, currentclient);
             }
@@ -124,21 +139,19 @@ public class MessageHandler {
         if (text.equals(ButtonLabels.SEND.getLabel()) && currentclient.getStatus().equals(ClientStatus.WAITING_SEND)) {
             return sendDataToManager(currentclient, message);
         }
-        //ЕСЛИ НАЖАЛ КНОПКУ "ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ
-        if (text.equals(ButtonLabels.MAIN_MENU.getLabel())) {
-            return sendWelcomeMessage( message);
-        }
-        return message;
+        //СООБЩЕНИЕ ПО УМОЛЧАНИЮ, ЕСЛИ НЕ ОДИН ИЗ СЛУЧАЕВ НЕ СРАБОТАЛ
+        return setDefaultMessage(message);
     }
 
 
 
-    public SendMessage processCallback(Update update, String data) {
+    public SendMessage processCallback(Update update, String callback) {
         SendMessage message = new SendMessage();
         long chatId = update.getCallbackQuery().getMessage().getChatId();
         message.setChatId(chatId);
         Client currentclient = clientService.findByChatId(chatId);
-        return switch (data) {
+        currentclient.setUsername(update.getCallbackQuery().getFrom().getUserName());
+        return switch (callback) {
             case "service_support" -> sendServiceSupportMessage(currentclient, message);
             case "wrong_item" -> sendWrongItemInstructions(currentclient, message);
             case "damaged_item" -> sendDamagedItemInstructions(currentclient, message);
@@ -148,12 +161,12 @@ public class MessageHandler {
             case "promotions" -> sendPromotionsMessage(chatId, message);
             case "cooperation" -> sendHelpChoiceMessage(chatId, message);
             case "call_to_manager" -> callToManager(update.getCallbackQuery().getFrom().getUserName(), message);
-            case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message);
-            case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message);
-            case "5_stars_constructor", "4_stars_constructor" -> sendGoodAnswerToConstructor(currentclient, message);
-            case "3_stars_constructor", "2_stars_constructor", "1_stars_constructor" -> sendBadAnswerToConstructor(currentclient, message);
+            case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message,callback);
+            case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message,callback);
+            case "5_stars_constructor", "4_stars_constructor" -> sendGoodAnswerToConstructor(currentclient, message,callback);
+            case "3_stars_constructor", "2_stars_constructor", "1_stars_constructor" -> sendBadAnswerToConstructor(currentclient, message,callback);
             default -> {
-                message.setText(data);
+                message.setText(callback);
                 yield message;
             }
         };
@@ -206,7 +219,8 @@ public class MessageHandler {
                 
                 👉 Мы всегда рады помочь! Не стесняйся обращаться.
                 """);
-        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
+        //message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
         message.enableMarkdown(true);
         return message;
     }
@@ -238,20 +252,21 @@ public class MessageHandler {
         return message;
     }
     public void startTimerByServiceSupport(Client currentClient) {
+        log.info("ЗАПУСКАЮ ТАЙМЕР ДЛЯ СЕРВИСА");
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendServiceQualityMessage(currentClient);
-        }, 24, TimeUnit.HOURS);
+        }, 24, TimeUnit.SECONDS);
         scheduler.shutdown();
 
     }
 
     public void startTimerByCaseConstructor(Client currentClient) {
-
+        log.error("ЗАПУСКАЮ ТАЙМЕР ДЛЯ КОНСТРУКТОРА");
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendConstructorQualityMessage(currentClient);
-        }, 24, TimeUnit.HOURS);
+        }, 24, TimeUnit.SECONDS);
         scheduler.shutdown();
 
     }
@@ -320,7 +335,7 @@ public class MessageHandler {
         }
     }
 
-    private SendMessage sendBadAnswer(Client currentclient, SendMessage message) {
+    private SendMessage sendBadAnswer(Client currentclient, SendMessage message,String callback) {
         if (currentclient.getStatus().equals(ClientStatus.WAITING_SERVICE_QUALITY)) {
             message.setText("""
                     🙏 Спасибо за честный отзыв!
@@ -328,13 +343,14 @@ public class MessageHandler {
                     Пожалуйста, напишите, что именно нам стоит улучшить. Ваше мнение поможет нам стать лучше! 🙌
                     """);
             currentclient.setStatus(ClientStatus.WAITING_BAD_FEEDBACK);
+            currentclient.setServiceMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
             clientService.saveClient(currentclient);
             return message;
         }
         message.setText("Эта кнопка неактивна в данный момент)");
         return message;
     }
-    private SendMessage sendBadAnswerToConstructor(Client currentclient, SendMessage message) {
+    private SendMessage sendBadAnswerToConstructor(Client currentclient, SendMessage message,String callback) {
         if (currentclient.getStatus().equals(ClientStatus.WAITING_CONSTRUCTOR_QUALITY)) {
             message.setText("""
                     🙏 Спасибо за честный отзыв!
@@ -342,25 +358,27 @@ public class MessageHandler {
                     Пожалуйста, напишите, что именно нам стоит улучшить. Ваше мнение поможет нам стать лучше!
                     """);
             currentclient.setStatus(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR);
+            currentclient.setServiceMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
             clientService.saveClient(currentclient);
             return message;
         }
         message.setText("Эта кнопка неактивна в данный момент)");
         return message;
     }
-    private SendMessage sendGoodAnswer(Client currentclient, SendMessage message) {
-        //TODO:КУДА ТО ОТПРАВИТЬ ЭТИ ЗВЕЗДЫ
+    private SendMessage sendGoodAnswer(Client currentclient, SendMessage message, String callback) {
+        currentclient.setServiceMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
         message.setText("""
                 🎉 Спасибо за высокую оценку!
                 Мы рады, что смогли вам помочь. Будем и дальше стараться радовать вас качественным сервисом!
                 """);
         currentclient.setStatus(ClientStatus.SAVED);
         clientService.saveClient(currentclient);
+        googleSheetsService.updateTable(clientService.getAllClients());
         return message;
     }
 
-    private SendMessage sendGoodAnswerToConstructor(Client currentclient, SendMessage message) {
-        //TODO:КУДА ТО ОТПРАВИТЬ ЭТИ ЗВЕЗДЫ
+    private SendMessage sendGoodAnswerToConstructor(Client currentclient, SendMessage message,String callback) {
+        currentclient.setConstructorMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
         message.setText("""
                 🎉 Спасибо за высокую оценку!
                 Мы рады, что вам понравилось создавать чехол с нами.
@@ -368,6 +386,7 @@ public class MessageHandler {
                 """);
         currentclient.setStatus(ClientStatus.SAVED);
         clientService.saveClient(currentclient);
+        googleSheetsService.updateTable(clientService.getAllClients());
         return message;
     }
     private SendMessage sendOrderQuestionProcess(Message update, SendMessage message, Client currentClient) {
@@ -444,7 +463,7 @@ public class MessageHandler {
         image.setMedia(currentclient.getImage());
         InputMediaPhoto screen = new InputMediaPhoto();
         screen.setMedia(currentclient.getScreenshot());
-        screen.setCaption(currentclient.getDescription());
+        screen.setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s",currentclient.getUsername(),currentclient.getDescription()));
         media.setMedias(List.of(image, screen));
         media.setChatId(managerChatId);
         try {
@@ -465,13 +484,13 @@ public class MessageHandler {
         currentclient.setStatus(ClientStatus.WAITING_IMAGE);
         clientService.saveClient(currentclient);
         message.setText("""
-                Отправьте фото товара:
+                Отправьте 1 фото товара - на нем должна хорошо быть видна суть проблемы:
                 """);
         return message;
     }
 
 
-    private SendMessage sendWelcomeMessage(SendMessage message) {
+    private SendMessage sendWelcomeMessage(Client currentClient, SendMessage message) {
         message.setText("Главное меню");
         message.setReplyMarkup(new ReplyKeyboardRemove(true));
         try {
@@ -499,6 +518,9 @@ public class MessageHandler {
                         new Pair<>("\uD83D\uDCBC Сотрудничество", "cooperation")
                 )
         ));
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
+
         return message;
     }
 
