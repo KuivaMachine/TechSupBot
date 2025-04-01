@@ -1,15 +1,7 @@
 package org.example.techsupbot.bot;
 
-import lombok.Getter;
 
-@Getter
-public class Pair<K, V> {
-    private K first;
-    private V second;
 
-    public Pair(K first, V second) {
-        this.first = first;
-        this.second = second;
-    }
 
+public record Pair<K, V>(K first, V second) {
 }

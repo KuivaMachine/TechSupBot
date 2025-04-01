@@ -13,12 +13,11 @@ import java.util.ArrayList;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ClientServiceImpl implements ClientService {
     ClientRepo clientRepo;
+
     @Override
     public void saveClient(Client client) {
         clientRepo.save(client);
-
     }
-
     @Override
     public Client findByChatId(long chatId) {
         return clientRepo.findById(chatId).orElse(new Client(chatId,null, null, null, null, ClientStatus.SAVED,false,false, (byte) 0,null, (byte) 0,null));

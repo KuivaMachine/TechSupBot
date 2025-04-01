@@ -9,6 +9,7 @@ import org.example.techsupbot.data.ClientStatus;
 @Entity
 @Table(name = "clients")
 @Getter
+@EqualsAndHashCode
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor

@@ -694,8 +694,8 @@ public class MessageHandler {
 
         for (Pair<String, String> button : buttons) {
             InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
-            inlineKeyboardButton.setText(button.getFirst());
-            inlineKeyboardButton.setCallbackData(button.getSecond());
+            inlineKeyboardButton.setText(button.first());
+            inlineKeyboardButton.setCallbackData(button.second());
             keyboard.add(List.of(inlineKeyboardButton));
         }
 

@@ -24,13 +24,16 @@ public class TechSupBot extends TelegramLongPollingBot {
     TelegramBotConfig config;
     MessageHandler handler;
     ClientService clientService;
+    ScheduleService scheduleService;
    // TelegramRestController controller;
-   public TechSupBot(ClientService clientService, TelegramBotConfig config, MessageHandler handler, RedisService redisService) {
+   public TechSupBot(ScheduleService scheduleService, ClientService clientService, TelegramBotConfig config, MessageHandler handler, RedisService redisService) {
         super(config.getToken());
         this.handler = handler;
        this.clientService = clientService;
        this.redisService = redisService;
         this.config = config;
+        this.scheduleService = scheduleService;
+        scheduleService.init(this);
         try {
             TelegramBotsApi api = new TelegramBotsApi(DefaultBotSession.class);
             api.registerBot(this);
