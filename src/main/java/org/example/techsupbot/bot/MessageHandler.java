@@ -38,12 +38,10 @@ import java.util.concurrent.TimeUnit;
 public class MessageHandler {
 
     private final Long managerChatId = 889218535L;
-    private TechSupBot telegram;
+    final TelegramRestController controller;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
-    public void registerBot(TechSupBot telegram) {
-        this.telegram = telegram;
-    }
+
 
     public SendMessage processMessage(Long chatId, Message update) {
         String text = update.getText();
@@ -111,7 +109,7 @@ public class MessageHandler {
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
             //ЕСЛИ НАЖАЛИ КНОПКУ Я ПЕРЕДУМАЛ ПИСАТЬ
             if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
-                telegram.deleteLastMessage(chatId);
+                controller.deleteLastMessage(chatId);
                 message.setText("Хорошо, я все отменил \uD83D\uDC4D");
                 message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
                 return message;
@@ -228,14 +226,12 @@ public class MessageHandler {
         String question = String.format("Клиент @%s нажал кнопку \"Подключить специалиста\"", user);
         order.setChatId(managerChatId);
         order.setText(question);
-        try {
-            telegram.execute(order);
+
+            controller.executeMessage(order);
             message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
             return message;
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+
     }
 
     private SendMessage cancelProcess(Client currentclient, SendMessage message) {
@@ -293,11 +289,7 @@ public class MessageHandler {
                 new Pair<>("⭐️⭐️", "2_stars_constructor"),
                 new Pair<>("⭐️", "1_stars_constructor")
         )));
-        try {
-            telegram.execute(message);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+       controller.executeMessage(message);
     }
 
     private void sendServiceQualityMessage(Client currentClient) {
@@ -325,11 +317,7 @@ public class MessageHandler {
                 new Pair<>("⭐️⭐️", "2_stars"),
                 new Pair<>("⭐️", "1_stars")
         )));
-        try {
-            telegram.execute(message);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+        controller.executeMessage(message);
     }
 
     private SendMessage sendBadAnswer(Client currentclient, SendMessage message,String callback) {
@@ -393,8 +381,8 @@ public class MessageHandler {
         String question = String.format("Вопрос по заказу от пользователя @%s:\n", update.getFrom().getUserName());
         order.setChatId(managerChatId);
         order.setText(question + update.getText());
-        try {
-            telegram.execute(order);
+
+            controller.executeMessage(order);
             message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
             message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
             currentClient.setStatus(ClientStatus.SAVED);
@@ -405,9 +393,7 @@ public class MessageHandler {
                 clientService.saveClient(currentClient);
             }
             return message;
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+
     }
     private SendMessage fillReturnDataProcess(Client currentclient, SendMessage message) {
         ArrayList<KeyboardRow> keyboard = new ArrayList<>();
@@ -465,8 +451,8 @@ public class MessageHandler {
         screen.setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s",currentclient.getUsername(),currentclient.getDescription()));
         media.setMedias(List.of(image, screen));
         media.setChatId(managerChatId);
-        try {
-            telegram.execute(media);
+
+            controller.executeMessage(media);
             message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
             currentclient.setStatus(ClientStatus.SENT);
             currentclient.setUsedService(true);
@@ -474,9 +460,7 @@ public class MessageHandler {
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
             startTimerByServiceSupport(currentclient);
             return message;
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
+
     }
 
     private SendMessage addImageProcess(Client currentclient, SendMessage message) {
@@ -492,7 +476,7 @@ public class MessageHandler {
 
 
     private SendMessage sendServiceSupportMessage(Client currentClient, SendMessage message) {
-        telegram.deleteLastMessage(currentClient.getChatId());
+        controller.deleteLastMessage(currentClient.getChatId());
         currentClient.setStatus(ClientStatus.SERVICE_SUPPORT);
         clientService.saveClient(currentClient);
         message.setText("Спасибо, что обратились к нам! Пожалуйста, опишите вашу проблему, мы постараемся помочь вам как можно быстрее!");
@@ -563,7 +547,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendCreateCaseMessage(Client currentClient, SendMessage message) {
-        telegram.deleteLastMessage(currentClient.getChatId());
+        controller.deleteLastMessage(currentClient.getChatId());
         message.setText("""
                 Мы рады, что вы хотите создать что-то уникальное! Нажмите на кнопку ниже, и вы перейдете на наш сайт, где сможете:
                 - Выбрать модель телефона.
@@ -587,7 +571,7 @@ public class MessageHandler {
         return message;
     }
     private SendMessage sendJoinGroupMessage(Long chatId, SendMessage message) {
-        telegram.deleteLastMessage(chatId);
+        controller.deleteLastMessage(chatId);
         message.setChatId(chatId.toString());
         message.setText("""
                 🎉 Отлично! 🎉
@@ -603,7 +587,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendPromotionsMessage(Long chatId, SendMessage message) {
-        telegram.deleteLastMessage(chatId);
+        controller.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
@@ -650,7 +634,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
-        telegram.deleteLastMessage(chatId);
+        controller.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
