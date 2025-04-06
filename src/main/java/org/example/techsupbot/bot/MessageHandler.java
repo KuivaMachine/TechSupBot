@@ -22,7 +22,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRem
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,10 +37,14 @@ import java.util.concurrent.TimeUnit;
 public class MessageHandler {
 
     private final Long managerChatId = 889218535L;
-    final TelegramRestController controller;
+    TelegramRestController controller;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
 
+
+    public void initController(TelegramRestController controller) {
+        this.controller = controller;
+    }
 
     public SendMessage processMessage(Long chatId, Message update) {
         String text = update.getText();

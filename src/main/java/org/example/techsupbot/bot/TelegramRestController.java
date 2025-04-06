@@ -1,5 +1,6 @@
 package org.example.techsupbot.bot;
 
+import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -33,6 +34,10 @@ public class TelegramRestController {
     final RedisService redisService;
     private TechSupBot telegramBot;
 
+    @PostConstruct
+    public void init() {
+        handler.initController(this);
+    }
 
     @PostMapping("/callback/bot_tech_sup/update")
     public BotApiMethod<?> receiveUpdate(@RequestBody Update update) {
