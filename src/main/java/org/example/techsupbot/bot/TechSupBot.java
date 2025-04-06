@@ -1,8 +1,6 @@
 package org.example.techsupbot.bot;
 
 import lombok.extern.log4j.Log4j2;
-import org.example.techsupbot.DTO.ClientService;
-import org.example.techsupbot.redis.RedisService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
@@ -19,9 +17,10 @@ public class TechSupBot extends TelegramWebhookBot {
     ScheduleService scheduleService;
     TelegramRestController controller;
 
-   public TechSupBot(ScheduleService scheduleService,TelegramBotConfig config) {
+   public TechSupBot(ScheduleService scheduleService,TelegramBotConfig config, TelegramRestController controller) {
         super(config.getToken());
         this.config = config;
+        this.controller=controller;
         this.scheduleService = scheduleService;
         scheduleService.init(this);
         try {
