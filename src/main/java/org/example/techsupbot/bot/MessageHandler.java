@@ -9,6 +9,7 @@ import org.example.techsupbot.DTO.ClientService;
 import org.example.techsupbot.data.ButtonLabels;
 import org.example.techsupbot.data.ClientStatus;
 import org.example.techsupbot.googlesheets.GoogleSheetsService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -36,7 +37,8 @@ import java.util.concurrent.TimeUnit;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MessageHandler {
 
-    private final Long managerChatId = 889218535L;
+    @Value("${bot.manager_id}")
+    private Long managerChatId;
     TelegramRestController controller;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
@@ -252,7 +254,7 @@ public class MessageHandler {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendServiceQualityMessage(currentClient);
-        }, 24, TimeUnit.SECONDS);
+        }, 24, TimeUnit.HOURS);
         scheduler.shutdown();
 
     }
@@ -262,7 +264,7 @@ public class MessageHandler {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.schedule(() -> {
             sendConstructorQualityMessage(currentClient);
-        }, 24, TimeUnit.SECONDS);
+        }, 24, TimeUnit.HOURS);
         scheduler.shutdown();
 
     }
