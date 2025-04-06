@@ -7,7 +7,7 @@ import java.time.Instant;
 
 @Controller
 public class RedisService {
-    private static final String REDIS_HOST = "127.0.0.1";
+    private static final String REDIS_HOST = "redis_kuiva";
     private static final int REDIS_PORT = 6379;
     private static final String LAST_MESSAGE_KEY_PREFIX = "last_message:";
 
