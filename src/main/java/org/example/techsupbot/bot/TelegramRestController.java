@@ -107,11 +107,12 @@ public class TelegramRestController {
 
         return message;
     }
+
     Message executeMessage(SendMessage message) {
         try {
             return telegramBot.execute(message);
         } catch (TelegramApiException e) {
-            log.error("Error while executing message - ", e);
+            log.error("ОШИБКА ОТПРАВКИ СООБЩЕНИЯ - ", e);
         }
         return null;
     }
@@ -119,7 +120,7 @@ public class TelegramRestController {
         try {
             telegramBot.execute(message);
         } catch (TelegramApiException e) {
-            log.error("Error while executing message - ", e);
+            log.error("ОШИБКА ОТПРАВКИ ГРУППЫ МЕДИАФАЙЛОВ - ", e);
         }
     }
 
@@ -131,7 +132,7 @@ public class TelegramRestController {
             try {
                 telegramBot.execute(deleteMessage);
             } catch (TelegramApiException e) {
-                throw new RuntimeException(e);
+               log.error(String.format("УДАЛИТЬ СООБЩЕНИЕ У ПОЛЬЗОВАТЕЛЯ %s НЕ УДАЛОСЬ, ПО ПРИЧИНЕ: %s", chatId, e.getMessage()));
             }
         }
     }
