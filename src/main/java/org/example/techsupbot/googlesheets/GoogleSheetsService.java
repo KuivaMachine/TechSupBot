@@ -241,16 +241,6 @@ public class GoogleSheetsService {
         return new Request().setRepeatCell(repeatCellRequest);
     }
 
-    private Request createCellBordersRequest(GridRange range) {
-        Border border = new Border().setStyle("SOLID").setWidth(2);
-        UpdateBordersRequest updateBordersRequest = new UpdateBordersRequest()
-                .setRange(range)
-                .setBottom(border)
-                .setTop(border)
-                .setLeft(border)
-                .setRight(border);
-        return new Request().setUpdateBorders(updateBordersRequest);
-    }
 
     private Color getColorByHEX(String hex) {
         int red = Integer.parseInt(hex.substring(1, 3), 16);
