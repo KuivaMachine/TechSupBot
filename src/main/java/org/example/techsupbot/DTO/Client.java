@@ -23,12 +23,6 @@ public class Client {
     @Column(name = "username")
     String username;
 
-    @Column(name = "screenshot")
-    String screenshot;
-
-    @Column(name = "image")
-    String image;
-
     @Column(name="description")
     String description;
 

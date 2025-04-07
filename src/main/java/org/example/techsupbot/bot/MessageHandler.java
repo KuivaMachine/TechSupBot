@@ -13,9 +13,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -25,7 +27,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -39,13 +40,15 @@ public class MessageHandler {
 
     @Value("${bot.manager_id}")
     private Long managerChatId;
-    TelegramRestController controller;
+    @Value("${bot.alexander_id}")
+    private Long alexanderChatId;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
+    TechSupBot telegram;
 
 
-    public void initController(TelegramRestController controller) {
-        this.controller = controller;
+    public void init(TechSupBot telegram) {
+        this.telegram = telegram;
     }
 
     public SendMessage processMessage(Long chatId, Message update) {
@@ -72,23 +75,20 @@ public class MessageHandler {
         if (text.equals(ButtonLabels.CANCEL.getLabel())) {
             return cancelProcess(currentclient, message);
         }
-        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ ФОТО
-        if (text.equals(ButtonLabels.ATTACH_IMAGE.getLabel())) {
-            return addImageProcess(currentclient, message);
-        }
-        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ СКРИН
-        if (text.equals(ButtonLabels.ATTACH_SCREEN.getLabel())) {
-            return addsScreenProcess(currentclient, message);
-        }
-        //ЕСЛИ НАЖАЛИ ПРИКРЕПИТЬ ОПИСАНИЕ
-        if (text.equals(ButtonLabels.ATTACH_DESCRIPTION.getLabel())) {
-            return addDescriptionProcess(currentclient, message);
-        }
-        //ЕСЛИ ОЖИДАЕТСЯ ОПИСАНИЕ
-        if (currentclient.getStatus().equals(ClientStatus.WAITING_DESCRIPTION)) {
-            currentclient.setDescription(text);
-            clientService.saveClient(currentclient);
-            return fillReturnDataProcess(currentclient, message);
+
+        //TODO ЕСЛИ ОЖИДАЕТСЯ КОНТЕНТ НО ПРИШЛО СООБЩЕНИЕ
+        if (currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)) {
+            message.setText("""
+                    Пожалуйста, <b>отправьте нам ОДНИМ сообщением</b>:
+                    1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.
+                    2. 📝 Скрин заказа из личного кабинета.
+                    3. ✏️ Описание проблемы.
+                    Как только мы получим эту информацию, мы начнем процесс замены или возврата. Для отмены оформления заявки нажмите "Отмена"
+                    """);
+            message.setParseMode("HTML");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(
+                    new KeyboardButton(ButtonLabels.CANCEL.getLabel()))))));
+            return message;
         }
         //ЕСЛИ ОЖИДАЕТСЯ ПЛОХОЙ ОТЗЫВ НА СЕРВИС (НАЖАЛИ 1-3 ЗВЕЗДЫ)
         if (currentclient.getStatus().equals(ClientStatus.WAITING_BAD_FEEDBACK)) {
@@ -113,32 +113,15 @@ public class MessageHandler {
         //ЕСЛИ СТАТУС "ВОПРОС ПО ЗАКАЗУ"
         if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
             //ЕСЛИ НАЖАЛИ КНОПКУ Я ПЕРЕДУМАЛ ПИСАТЬ
+            telegram.deleteLastMessage(chatId);
             if(text.equals(ButtonLabels.CANCEL_ORDER_QUESTION.getLabel())){
-                controller.deleteLastMessage(chatId);
+
                 message.setText("Хорошо, я все отменил \uD83D\uDC4D");
                 message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
                 return message;
             }else{
                 return sendOrderQuestionProcess(update, message, currentclient);
             }
-        }
-        //ЕСЛИ КЛИЕНТ ВВОДИТ СООБЩЕНИЕ, ХОТЯ ОЖИДАЕТСЯ ФОТО
-        if (currentclient.getStatus().equals(ClientStatus.WAITING_IMAGE)) {
-            message.setText("Чтобы добавить фото товара, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить фото\", а затем отправьте фотографию.");
-            return message;
-        }
-        //ЕСЛИ КЛИЕНТ ВВОДИТ СООБЩЕНИЕ, ХОТЯ ОЖИДАЕТСЯ СКРИНШОТ
-        if (currentclient.getStatus().equals(ClientStatus.WAITING_SCREEN)) {
-            message.setText("Чтобы добавить скриншот личного кабинета, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку \"Прикрепить скрин\", а затем отправьте скриншот.");
-            return message;
-        }
-        if (currentclient.getStatus().equals(ClientStatus.WRONG_ITEM)) {
-            message.setText("Чтобы оформить заявку, воспользуйтесь клавиатурой ниже 👇\nСначала нажмите кнопку, а затем введите нужные данные)");
-            return message;
-        }
-        //ЕСЛИ КЛИЕНТ НАЖАЛ ОТПРАВИТЬ МЕНЕДЖЕРУ И У НЕГО СТАТУС "ОЖИДАЕТ ОТПРАВКИ"
-        if (text.equals(ButtonLabels.SEND.getLabel()) && currentclient.getStatus().equals(ClientStatus.WAITING_SEND)) {
-            return sendDataToManager(currentclient, message);
         }
         //СООБЩЕНИЕ ПО УМОЛЧАНИЮ, ЕСЛИ НЕ ОДИН ИЗ СЛУЧАЕВ НЕ СРАБОТАЛ
         return setDefaultMessage(message);
@@ -174,30 +157,69 @@ public class MessageHandler {
     }
 
 
-
-
-    public SendMessage processPhoto(Long chatId, List<PhotoSize> photos) {
+    public SendMessage processMediaGroup(Long chatId, String caption, List<InputMedia> mediaList) {
         Client currentclient = clientService.findByChatId(chatId);
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
-        message.setText("""
-                Вы добавили фото, но забыли нажать кнопку "Прикрепить фото" или "Прикрепить скрин"
-                """);
-        PhotoSize photo = photos.stream().max(Comparator.comparing((x) -> x.getFileSize()
-        )).orElse(null);
-        if (photo != null) {
-            if (currentclient.getStatus().equals(ClientStatus.WAITING_IMAGE)) {
-                currentclient.setImage(photo.getFileId());
-                currentclient.setStatus(ClientStatus.WRONG_ITEM);
-                clientService.saveClient(currentclient);
-                return fillReturnDataProcess(currentclient, message);
-            }
-            if (currentclient.getStatus().equals(ClientStatus.WAITING_SCREEN)) {
-                currentclient.setScreenshot(photo.getFileId());
-                currentclient.setStatus(ClientStatus.WRONG_ITEM);
-                clientService.saveClient(currentclient);
-                return fillReturnDataProcess(currentclient, message);
-            }
+
+        //ЕСЛИ МЕДИА ГРУППА НЕ ОЖИДАЕТСЯ
+        if (!currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
+            message.setText("Чтобы оформить заявку, нажмите \"Сервисная поддержка\" в главном меню");
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+
+        } else if(currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)||currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)){
+            currentclient.setUsedService(true);
+            currentclient.setDescription(caption);
+            SendMediaGroup media = new SendMediaGroup();
+
+            mediaList.getFirst().setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s", currentclient.getUsername(), currentclient.getDescription() == null ? "Без описания" : currentclient.getDescription()));
+            media.setMedias(mediaList);
+            //ОТПРАВКА МЕНЕДЖЕРУ
+            media.setChatId(managerChatId);
+            telegram.executeMessage(media);
+            //ОТПРАВКА АЛЕКСАНДРУ
+            media.setChatId(alexanderChatId);
+            telegram.executeMessage(media);
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            startTimerByServiceSupport(currentclient);
+        }
+        return message;
+    }
+
+    public SendMessage processPhoto(Long chatId, Message photo) {
+        Client currentclient = clientService.findByChatId(chatId);
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+
+
+        if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
+            currentclient.setDescription(photo.getCaption());
+            SendPhoto media = new SendPhoto();
+            media.setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s", currentclient.getUsername(), currentclient.getDescription() == null ? "Без описания" : currentclient.getDescription()));
+            media.setPhoto( new InputFile().setMedia(photo.getPhoto().getLast().getFileId()));
+
+            //ОТПРАВКА МЕНЕДЖЕРУ
+            media.setChatId(managerChatId);
+            telegram.executeMessage(media);
+            //ОТПРАВКА АЛЕКСАНДРУ
+            media.setChatId(alexanderChatId);
+            telegram.executeMessage(media);
+
+            currentclient.setUsedService(true);
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+            startTimerByServiceSupport(currentclient);
+
+           } else if (currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)) {
+            message.setText(String.format("Вы отправили фото %s. \n\nНо для полной заявки нужны все следующие элементы:\n 1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.\n2. 📝 Скрин заказа из личного кабинета.\n 3. ✏️ Описание проблемы.\nПожалуйста, <b>отправьте это ОДНИМ сообщением</b>👇", photo.getCaption() == null ? "без описания" : "с описанием"));
+            message.setParseMode("HTML");
         }
         return message;
     }
@@ -229,22 +251,23 @@ public class MessageHandler {
     private SendMessage callToManager(String user, SendMessage message) {
         SendMessage order = new SendMessage();
         String question = String.format("Клиент @%s нажал кнопку \"Подключить специалиста\"", user);
+        //ОТПРАВИТЬ МЕНЕДЖЕРУ
         order.setChatId(managerChatId);
         order.setText(question);
-
-            controller.executeMessage(order);
-            message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-            return message;
+        telegram.executeMessage(order);
+        //ОТПРАВИТЬ АЛЕКСАНДРУ
+        order.setChatId(alexanderChatId);
+        telegram.executeMessage(order);
+        message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+        return message;
 
     }
 
     private SendMessage cancelProcess(Client currentclient, SendMessage message) {
         message.setText("Заявка на возврат отменена.");
         message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-        currentclient.setDescription(null);
-        currentclient.setImage(null);
-        currentclient.setScreenshot(null);
+
         currentclient.setStatus(ClientStatus.SAVED);
         clientService.saveClient(currentclient);
         return message;
@@ -294,7 +317,7 @@ public class MessageHandler {
                 new Pair<>("⭐️⭐️", "2_stars_constructor"),
                 new Pair<>("⭐️", "1_stars_constructor")
         )));
-       controller.executeMessage(message);
+        telegram.executeMessage(message);
     }
 
     private void sendServiceQualityMessage(Client currentClient) {
@@ -322,7 +345,7 @@ public class MessageHandler {
                 new Pair<>("⭐️⭐️", "2_stars"),
                 new Pair<>("⭐️", "1_stars")
         )));
-        controller.executeMessage(message);
+        telegram.executeMessage(message);
     }
 
     private SendMessage sendBadAnswer(Client currentclient, SendMessage message,String callback) {
@@ -384,104 +407,33 @@ public class MessageHandler {
     private SendMessage sendOrderQuestionProcess(Message update, SendMessage message, Client currentClient) {
         SendMessage order = new SendMessage();
         String question = String.format("Вопрос по заказу от пользователя @%s:\n", update.getFrom().getUserName());
-        order.setChatId(managerChatId);
         order.setText(question + update.getText());
 
-            controller.executeMessage(order);
-            message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
-            message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19","main_menu"))));
-            currentClient.setStatus(ClientStatus.SAVED);
+        //ОТПРАВИТЬ МЕНЕДЖЕРУ
+        order.setChatId(managerChatId);
+        telegram.executeMessage(order);
+        //ОТПРАВИТЬ АЛЕКСАНДРУ
+        order.setChatId(alexanderChatId);
+        telegram.executeMessage(order);
+
+        message.setText("Спасибо! Менеджер свяжется с Вами в ближайшее время для уточнения деталей.");
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19", "main_menu"))));
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
+        if (!currentClient.getUsedService()) {
+            startTimerByServiceSupport(currentClient);
+            currentClient.setUsedService(true);
             clientService.saveClient(currentClient);
-            if(!currentClient.getUsedService()){
-                startTimerByServiceSupport(currentClient);
-                currentClient.setUsedService(true);
-                clientService.saveClient(currentClient);
-            }
+        }
             return message;
 
-    }
-    private SendMessage fillReturnDataProcess(Client currentclient, SendMessage message) {
-        ArrayList<KeyboardRow> keyboard = new ArrayList<>();
-        String text = "Отлично! Вам осталось добавить:\n";
-        if (currentclient.getScreenshot() == null) {
-            text += "- Скриншот из личного кабинета с заказом\n";
-            keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_SCREEN.getLabel()))));
-        }
-        if (currentclient.getImage() == null) {
-            text += "- Фото товара\n";
-            keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_IMAGE.getLabel()))));
-        }
-        if (currentclient.getDescription() == null) {
-            text += "- Описание проблемы\n";
-            keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel()))));
-        }
-        if (currentclient.getDescription() != null && currentclient.getImage() != null && currentclient.getScreenshot() != null) {
-            message.setText("Отлично! Теперь нажмите \"Отправить заявку на возврат или замену\"");
-            currentclient.setStatus(ClientStatus.WAITING_SEND);
-            clientService.saveClient(currentclient);
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.SEND.getLabel()))))));
-            return message;
-        }
-        message.setText(text);
-        keyboard.add(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.CANCEL.getLabel()))));
-        message.setReplyMarkup(createReplyKeyboard(keyboard));
-        return message;
-    }
-
-
-    private SendMessage addDescriptionProcess(Client currentclient, SendMessage message) {
-        currentclient.setStatus(ClientStatus.WAITING_DESCRIPTION);
-        clientService.saveClient(currentclient);
-        message.setText("""
-                Опишите, в чем именно заключается проблема:
-                """);
-        return message;
-    }
-
-    private SendMessage addsScreenProcess(Client currentclient, SendMessage message) {
-        currentclient.setStatus(ClientStatus.WAITING_SCREEN);
-        clientService.saveClient(currentclient);
-        message.setText("""
-                Отправьте скриншот из личного кабинета с Вашим заказом:
-                """);
-        return message;
-    }
-
-    private SendMessage sendDataToManager(Client currentclient, SendMessage message) {
-        SendMediaGroup media = new SendMediaGroup();
-        InputMediaPhoto image = new InputMediaPhoto();
-        image.setMedia(currentclient.getImage());
-        InputMediaPhoto screen = new InputMediaPhoto();
-        screen.setMedia(currentclient.getScreenshot());
-        screen.setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s",currentclient.getUsername(),currentclient.getDescription()));
-        media.setMedias(List.of(image, screen));
-        media.setChatId(managerChatId);
-        controller.executeMessage(media);
-
-        message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
-        currentclient.setStatus(ClientStatus.SAVED);
-        currentclient.setUsedService(true);
-        clientService.saveClient(currentclient);
-        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-        startTimerByServiceSupport(currentclient);
-        return message;
-
-    }
-
-    private SendMessage addImageProcess(Client currentclient, SendMessage message) {
-        currentclient.setStatus(ClientStatus.WAITING_IMAGE);
-        clientService.saveClient(currentclient);
-        message.setText("""
-                Отправьте 1 фото товара - на нем должна хорошо быть видна суть проблемы:
-                """);
-        return message;
     }
 
 
 
 
     private SendMessage sendServiceSupportMessage(Client currentClient, SendMessage message) {
-        controller.deleteLastMessage(currentClient.getChatId());
+        telegram.deleteLastMessage(currentClient.getChatId());
         currentClient.setStatus(ClientStatus.SERVICE_SUPPORT);
         clientService.saveClient(currentClient);
         message.setText("Спасибо, что обратились к нам! Пожалуйста, опишите вашу проблему, мы постараемся помочь вам как можно быстрее!");
@@ -497,49 +449,46 @@ public class MessageHandler {
     }
 
     private SendMessage sendWrongItemInstructions(Client currentClient, SendMessage message) {
-        if (currentClient.getStatus() == ClientStatus.SENT) {
-            message.setText("Вы уже отправили заявку на возврат. Наш менеджер скоро свяжется с Вами.");
-        } else {
-            currentClient.setStatus(ClientStatus.WRONG_ITEM);
+
+        currentClient.setStatus(ClientStatus.WAITING_CONTENT);
             clientService.saveClient(currentClient);
             message.setText("""
                     Мы очень сожалеем, что Вы получили не тот товар или дизайн. Давайте решим эту проблему как можно быстрее!
-                    Пожалуйста, выполните следующие шаги:
-                    1. 📸 Сфотографируйте товар и пришлите фото нам (это поможет быстрее разобраться в ситуации).
-                    2. 📝 Пришлите скрин из личного кабинета с Вашим заказом.
-                    3. 📦 Сохраните упаковку и товар в том виде, в котором вы его получили.
-                    Как только мы получим эту информацию, мы начнем процесс замены или возврата. Воспользуйтесь клавиатурой ниже 👇
+                                        
+                    Пожалуйста, <b>отправьте нам одним сообщением</b>👇:
+                    1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.
+                    2. 📝 Скрин заказа из личного кабинета.
+                    3. ✏️ Описание проблемы.
+                    📦 Сохраните упаковку и товар в том виде, в котором вы его получили.
+                    Как только мы получим эту информацию, мы начнем процесс замены или возврата.
+                    Для отмены оформления заявки нажмите "Отмена"
                     """);
+        message.setParseMode("HTML");
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(
-                            new KeyboardButton(ButtonLabels.ATTACH_IMAGE.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_SCREEN.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.CANCEL.getLabel())))
-            )));
-        }
+                    new KeyboardButton(ButtonLabels.CANCEL.getLabel()))))));
+
         return message;
     }
 
     private SendMessage sendDamagedItemInstructions(Client currentClient, SendMessage message) {
-        if (currentClient.getStatus() == ClientStatus.SENT) {
-            message.setText("Вы уже отправили заявку на возврат. Наш менеджер скоро свяжется с Вами.");
-        } else {
-            currentClient.setStatus(ClientStatus.WRONG_ITEM);
+
+        currentClient.setStatus(ClientStatus.WAITING_CONTENT);
             clientService.saveClient(currentClient);
             message.setText("""
                     Мы очень сожалеем, что Вы получили бракованный или поврежденный товар. Давайте решим эту проблему как можно быстрее!
-                    Пожалуйста, выполните следующие шаги:
-                    1. 📸 Сфотографируйте товар и пришлите фото нам (это поможет быстрее разобраться в ситуации.
-                    2. 📝 Пришлите скрин из личного кабинета, что б было видно заказ.
-                    3. 📦 Сохраните упаковку и товар в том виде, в котором вы его получили.
-                    Как только мы получим эту информацию, мы начнем процесс замены или возврата. Воспользуйтесь клавиатурой ниже 👇
+                                        
+                    Пожалуйста, <b>отправьте нам одним сообщением</b>👇:
+                    1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.
+                    2. 📝 Скрин заказа из личного кабинета.
+                    3. ✏️ Описание проблемы.
+                    📦 Сохраните упаковку и товар в том виде, в котором вы его получили.
+                    Как только мы получим эту информацию, мы начнем процесс замены или возврата.
+                    Для отмены оформления заявки нажмите "Отмена"
                     """);
+        message.setParseMode("HTML");
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(
-                            new KeyboardButton(ButtonLabels.ATTACH_IMAGE.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_SCREEN.getLabel()))),
-                    new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.ATTACH_DESCRIPTION.getLabel())))
-            )));
-        }
+                    new KeyboardButton(ButtonLabels.CANCEL.getLabel()))))));
+
         return message;
     }
 
@@ -552,7 +501,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendCreateCaseMessage(Client currentClient, SendMessage message) {
-        controller.deleteLastMessage(currentClient.getChatId());
+        telegram.deleteLastMessage(currentClient.getChatId());
         message.setText("""
                 Мы рады, что вы хотите создать что-то уникальное! Нажмите на кнопку ниже, и вы перейдете на наш сайт, где сможете:
                 - Выбрать модель телефона.
@@ -576,7 +525,7 @@ public class MessageHandler {
         return message;
     }
     private SendMessage sendJoinGroupMessage(Long chatId, SendMessage message) {
-        controller.deleteLastMessage(chatId);
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId.toString());
         message.setText("""
                 🎉 Отлично! 🎉
@@ -592,7 +541,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendPromotionsMessage(Long chatId, SendMessage message) {
-        controller.deleteLastMessage(chatId);
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
@@ -639,7 +588,7 @@ public class MessageHandler {
     }
 
     private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
-        controller.deleteLastMessage(chatId);
+        telegram.deleteLastMessage(chatId);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟

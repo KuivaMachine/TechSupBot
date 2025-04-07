@@ -1,3 +1,4 @@
+/*
 package org.example.techsupbot.bot;
 
 import jakarta.annotation.PostConstruct;
@@ -19,9 +20,13 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
+import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
+import org.telegram.telegrambots.meta.api.objects.media.InputMediaVideo;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Log4j2
 @RestController
@@ -32,8 +37,8 @@ public class TelegramRestController {
     final MessageHandler handler;
     final ClientService clientService;
     final RedisService redisService;
-    private TechSupBot telegramBot;
-
+    private TechSupBotLP telegramBot;
+    private final Map<String, List<Message>> mediaGroups = new ConcurrentHashMap<>();
     @PostConstruct
     public void init() {
         handler.initController(this);
@@ -74,11 +79,61 @@ public class TelegramRestController {
             if(lastMessage!=null){
                 redisService.saveLastMessageInfo(lastMessage.getChatId(), lastMessage.getMessageId());
             }
+        } else  if (update.hasMessage() && update.getMessage().getMediaGroupId()!=null) {
+            Message message = update.getMessage();
+
+            String mediaGroupId = message.getMediaGroupId();
+            String chatId = String.valueOf(message.getChatId());
+
+            // Добавляем сообщение в группу
+            mediaGroups.computeIfAbsent(mediaGroupId, k -> new ArrayList<>()).add(message);
+
+            // Запускаем обработку с задержкой (чтобы собрать все части)
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    processCompleteMediaGroup(chatId, mediaGroupId);
+                }
+            }, 2000); // Ждем 2 секунды для сбора всех частей
+
         }
         return null;
     }
 
+    private void processCompleteMediaGroup(String chatId, String mediaGroupId) {
+        List<Message> groupMessages = mediaGroups.remove(mediaGroupId);
+        if (groupMessages == null || groupMessages.isEmpty()) return;
 
+        // Получаем текст (обычно только в первом сообщении)
+        String caption = groupMessages.getFirst().getCaption();
+
+        // Собираем все медиафайлы
+        List<InputMedia> mediaList = new ArrayList<>();
+
+        for (Message msg : groupMessages) {
+            if (msg.hasPhoto()) {
+                // Берем фото с максимальным качеством (последнее в списке)
+                String fileId = msg.getPhoto().getLast().getFileId();
+                InputMediaPhoto media = new InputMediaPhoto();
+                media.setMedia(fileId);
+                mediaList.add(media);
+            }
+        }
+
+        // Отправляем как альбом
+        if (!mediaList.isEmpty()) {
+            try {
+                // Устанавливаем caption только для первого элемента
+                if (caption != null) {
+                    mediaList.getFirst().setCaption(caption);
+                }
+
+                telegramBot.execute(new SendMediaGroup(chatId, mediaList));
+            } catch (TelegramApiException e) {
+                log.error("ПИЗДЕЦ - {}", e.getMessage());
+            }
+        }
+    }
 
     private SendMessage sendWelcomeMessage(Client currentClient, SendMessage message) {
         deleteLastMessage(currentClient.getChatId());
@@ -137,7 +192,8 @@ public class TelegramRestController {
         }
     }
 
-    public void registerBot(TechSupBot techSupBot) {
+    public void registerBot(TechSupBotLP techSupBot) {
         this.telegramBot=techSupBot;
     }
 }
+*/
