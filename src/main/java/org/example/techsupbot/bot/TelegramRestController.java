@@ -102,7 +102,9 @@ public class TelegramRestController {
                                     processCompleteMediaGroup(chatId, mediaGroupId);
                                 }
                             }, 2000);
-
+                        }
+                        if(update.hasMessage()&&update.getMessage().hasDocument()){
+                            executeMessage(handler.processFile(update.getMessage().getChatId()));
                         }
                         return null;
         }

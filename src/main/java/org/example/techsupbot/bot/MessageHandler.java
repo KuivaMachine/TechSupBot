@@ -224,6 +224,20 @@ public class MessageHandler {
         return message;
     }
 
+    public SendMessage processFile(Long chatId) {
+        Client currentclient = clientService.findByChatId(chatId);
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        if (currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)||currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)) {
+            message.setText("Для отправки используйте <b>обычные фотографии</b>, не файлы)");
+        }else {
+            message.setText("Чтобы оформить заявку, нажмите \"Сервисная поддержка\" в главном меню");
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+        }
+        message.setParseMode("HTML");
+        return message;
+    }
+
 
     private SendMessage setDefaultMessage(SendMessage message) {
         message.setText("""
