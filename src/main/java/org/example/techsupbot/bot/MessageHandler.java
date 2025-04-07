@@ -456,15 +456,15 @@ public class MessageHandler {
         screen.setCaption(String.format("Заявка от клиента @%s!\nОписание проблемы:\n%s",currentclient.getUsername(),currentclient.getDescription()));
         media.setMedias(List.of(image, screen));
         media.setChatId(managerChatId);
+        controller.executeMessage(media);
 
-            controller.executeMessage(media);
-            message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
-            currentclient.setStatus(ClientStatus.SENT);
-            currentclient.setUsedService(true);
-            clientService.saveClient(currentclient);
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
-            startTimerByServiceSupport(currentclient);
-            return message;
+        message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
+        currentclient.setStatus(ClientStatus.SAVED);
+        currentclient.setUsedService(true);
+        clientService.saveClient(currentclient);
+        message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+        startTimerByServiceSupport(currentclient);
+        return message;
 
     }
 

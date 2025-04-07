@@ -1,10 +1,14 @@
 package org.example.techsupbot.redis;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Controller;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisDataException;
+
 import java.time.Instant;
 
+@Log4j2
 @Controller
 public class RedisService {
     private static final String REDIS_HOST = "redis";
@@ -31,7 +35,9 @@ public class RedisService {
 
             // Устанавливаем время жизни записи
             jedis.expire(key, MESSAGE_TTL);
-        } finally {
+        } catch (JedisDataException e){
+            log.error("НЕ УДАЛОСЬ ЗАПИСАТЬ ДАННЫЕ В REDIS (read-only mode). Message: {}", e.getMessage());
+        }finally {
             close();
         }
     }
