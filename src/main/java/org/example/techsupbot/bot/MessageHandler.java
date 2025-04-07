@@ -44,11 +44,11 @@ public class MessageHandler {
     private Long alexanderChatId;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
-    TechSupBot telegram;
+    TelegramRestController telegram;
 
 
-    public void init(TechSupBot telegram) {
-        this.telegram = telegram;
+    public void initController(TelegramRestController telegramRestController) {
+        this.telegram = telegramRestController;
     }
 
     public SendMessage processMessage(Long chatId, Message update) {
@@ -162,14 +162,8 @@ public class MessageHandler {
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
 
-        //ЕСЛИ МЕДИА ГРУППА НЕ ОЖИДАЕТСЯ
-        if (!currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)) {
-            message.setText("Чтобы оформить заявку, нажмите \"Сервисная поддержка\" в главном меню");
-            currentclient.setStatus(ClientStatus.SAVED);
-            clientService.saveClient(currentclient);
-            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
 
-        } else if(currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)||currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)){
+       if(currentclient.getStatus().equals(ClientStatus.WAITING_CONTENT)||currentclient.getStatus().equals(ClientStatus.ORDER_QUESTION)){
             currentclient.setUsedService(true);
             currentclient.setDescription(caption);
             SendMediaGroup media = new SendMediaGroup();
@@ -187,8 +181,14 @@ public class MessageHandler {
             message.setText("Мы передали ваш запрос менеджеру. В ближайшее время с вами свяжутся для уточнения деталей.");
             message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
             startTimerByServiceSupport(currentclient);
+        } else {
+            message.setText("Чтобы оформить заявку, нажмите \"Сервисная поддержка\" в главном меню");
+            currentclient.setStatus(ClientStatus.SAVED);
+            clientService.saveClient(currentclient);
+            message.setReplyMarkup(createReplyKeyboard(List.of(new KeyboardRow(List.of(new KeyboardButton(ButtonLabels.MAIN_MENU.getLabel()))))));
+
         }
-        return message;
+            return message;
     }
 
     public SendMessage processPhoto(Long chatId, Message photo) {
@@ -454,7 +454,7 @@ public class MessageHandler {
             clientService.saveClient(currentClient);
             message.setText("""
                     Мы очень сожалеем, что Вы получили не тот товар или дизайн. Давайте решим эту проблему как можно быстрее!
-                                        
+
                     Пожалуйста, <b>отправьте нам одним сообщением</b>👇:
                     1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.
                     2. 📝 Скрин заказа из личного кабинета.
@@ -476,7 +476,7 @@ public class MessageHandler {
             clientService.saveClient(currentClient);
             message.setText("""
                     Мы очень сожалеем, что Вы получили бракованный или поврежденный товар. Давайте решим эту проблему как можно быстрее!
-                                        
+
                     Пожалуйста, <b>отправьте нам одним сообщением</b>👇:
                     1. 📸 Фото товара. На нем должна хорошо быть видна суть проблемы.
                     2. 📝 Скрин заказа из личного кабинета.
@@ -640,6 +640,7 @@ public class MessageHandler {
         keyboardMarkup.setKeyboard(keyboard);
         return keyboardMarkup;
     }
+
 
 
 }
