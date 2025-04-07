@@ -2,6 +2,7 @@ package org.example.techsupbot.redis;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisDataException;
@@ -11,8 +12,10 @@ import java.time.Instant;
 @Log4j2
 @Controller
 public class RedisService {
-    private static final String REDIS_HOST = "127.0.0.1";
-    private static final int REDIS_PORT = 6379;
+    @Value("${redis.host}")
+    private static  String REDIS_HOST;
+    @Value("${redis.port}")
+    private static  int REDIS_PORT;
     private static final String LAST_MESSAGE_KEY_PREFIX = "last_message:";
 
     // Время жизни записи в Redis (48 часов в секундах)
