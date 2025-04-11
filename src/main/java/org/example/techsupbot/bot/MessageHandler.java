@@ -385,7 +385,7 @@ public class MessageHandler {
                     Пожалуйста, напишите, что именно нам стоит улучшить. Ваше мнение поможет нам стать лучше!
                     """);
             currentclient.setStatus(ClientStatus.WAITING_BAD_FEEDBACK_CONSTRUCTOR);
-            currentclient.setServiceMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
+            currentclient.setConstructorMark(Byte.parseByte(String.valueOf(callback.charAt(0))));
             clientService.saveClient(currentclient);
             return message;
         }
