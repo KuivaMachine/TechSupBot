@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -179,6 +181,14 @@ public class TelegramRestController {
             } catch (TelegramApiException e) {
                 log.error("ОШИБКА ОТПРАВКИ ГРУППЫ ФОТО - ", e);
             }
+        }
+        ChatMember executeMessage(GetChatMember message) {
+            try {
+                return telegramBot.execute(message);
+            } catch (TelegramApiException e) {
+                log.error("ОШИБКА ПРИ ПРОВЕРКЕ ПОДПИСКИ НА КАНАЛ @MustHaveCase - {}", e.getMessage());
+            }
+            return null;
         }
 
         public void deleteLastMessage(Long chatId) {

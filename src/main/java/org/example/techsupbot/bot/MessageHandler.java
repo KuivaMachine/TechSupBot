@@ -11,14 +11,15 @@ import org.example.techsupbot.data.ClientStatus;
 import org.example.techsupbot.googlesheets.GoogleSheetsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
-import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
@@ -139,6 +140,7 @@ public class MessageHandler {
             case "service_support" -> sendServiceSupportMessage(currentclient, message);
             case "wrong_item" -> sendWrongItemInstructions(currentclient, message);
             case "damaged_item" -> sendDamagedItemInstructions(currentclient, message);
+            case "promocode" -> sendPromocode(message, update.getCallbackQuery().getFrom().getId());
             case "order_questions" -> sendOrderQuestionsMessage(currentclient, message);
             case "create_case" -> sendCreateCaseMessage(currentclient, message);
             case "join_group" -> sendJoinGroupMessage(chatId, message);
@@ -563,7 +565,7 @@ public class MessageHandler {
                 
                 🎉 Текущие акции и скидки:
                 
-                1️⃣ Скидка 15% на заказ через сайт при подписке на наши соц. сети
+                1️⃣ Скидка 15% про промокоду на заказ через сайт при подписке на наш Телеграм канал
                    - Период действия: до 31 мая 2025 года.
                 
                 2️⃣ Бесплатная доставка при заказе от 5000 рублей
@@ -586,6 +588,9 @@ public class MessageHandler {
         InlineKeyboardButton instagram_but = new InlineKeyboardButton();
         instagram_but.setText("Подписаться на Инстаграмм");
         instagram_but.setUrl("https://www.instagram.com/musthavecase.ru?igsh=dmE2OTNvdzV5dTVh");
+        InlineKeyboardButton get_promo_but = new InlineKeyboardButton();
+        get_promo_but.setText("\uD83D\uDCB0Получить промокод\uD83D\uDCB0");
+        get_promo_but.setCallbackData("promocode");
         InlineKeyboardButton main_menu = new InlineKeyboardButton();
         main_menu.setText("Назад в главное меню \uD83D\uDD19");
         main_menu.setCallbackData("main_menu");
@@ -593,12 +598,48 @@ public class MessageHandler {
         keyboard.add(List.of(wibes_but));
         keyboard.add(List.of(vk_but));
         keyboard.add(List.of(instagram_but));
+        keyboard.add(List.of(get_promo_but));
         keyboard.add(List.of(main_menu));
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         keyboardMarkup.setKeyboard(keyboard);
         message.setReplyMarkup(keyboardMarkup);
         message.enableMarkdown(true);
         return message;
+    }
+
+    private SendMessage sendPromocode(SendMessage message, Long userId) {
+
+        if (isUserSubscribed(userId, "@MustHaveCase")) {
+            message.setText("Ваш промокод на скидку 15%\uD83D\uDD25 - <b>ОЛЕЖЕК2025</b>");
+            message.setParseMode("HTML");
+
+        } else {
+            message.setText("Для начала подпишитесь на наш Телегамм канал ☺\uFE0F");
+            InlineKeyboardButton telegram_but = new InlineKeyboardButton();
+            telegram_but.setText("Подписаться на Телеграмм");
+            telegram_but.setUrl("https://t.me/MustHaveCase");
+            InlineKeyboardButton get_promo_but = new InlineKeyboardButton();
+            get_promo_but.setText("\uD83D\uDCB0Получить промокод\uD83D\uDCB0");
+            get_promo_but.setCallbackData("promocode");
+            InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+            keyboardMarkup.setKeyboard(List.of(List.of(telegram_but), List.of(get_promo_but)));
+            message.setReplyMarkup(keyboardMarkup);
+            message.enableMarkdown(true);
+        }
+
+        return message;
+    }
+
+
+    public boolean isUserSubscribed(Long userId, String chatId) {
+        GetChatMember getChatMember = new GetChatMember();
+        getChatMember.setChatId(chatId);
+        getChatMember.setUserId(userId);
+        ChatMember chatMember = telegram.executeMessage(getChatMember);
+        return chatMember.getStatus().equals("member") ||
+                chatMember.getStatus().equals("administrator") ||
+                chatMember.getStatus().equals("creator");
+
     }
 
     private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
