@@ -43,6 +43,8 @@ public class MessageHandler {
     private Long managerChatId;
     @Value("${bot.alexander_id}")
     private Long alexanderChatId;
+    @Value("${bot.promo}")
+    private String promo;
     final ClientService clientService;
     final GoogleSheetsService googleSheetsService;
     TelegramRestController telegram;
@@ -610,7 +612,7 @@ public class MessageHandler {
     private SendMessage sendPromocode(SendMessage message, Long userId) {
 
         if (isUserSubscribed(userId, "@MustHaveCase")) {
-            message.setText("Ваш промокод на скидку 15%\uD83D\uDD25 - <b>ОЛЕЖЕК2025</b>");
+            message.setText(String.format("Ваш промокод на скидку 15%%\uD83D\uDD25 - <b>%s</b>", promo));
             message.setParseMode("HTML");
 
         } else {
