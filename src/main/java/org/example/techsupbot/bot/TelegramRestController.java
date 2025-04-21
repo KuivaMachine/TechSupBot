@@ -54,9 +54,11 @@ public class TelegramRestController {
 
             Message lastMessage;
             //ЕСЛИ ПРОСТО ТЕКСТ
+
             if (update.hasMessage() && update.getMessage().hasText()) {
+
                 //ЕСЛИ НАЖАЛ КНОПКУ "ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ
-                if (update.getMessage().getText().equals("/start") || update.getMessage().getText().equals(ButtonLabels.MAIN_MENU.getLabel())) {
+                if (update.getMessage().getText().equals("/start") || update.getMessage().getText().equals(ButtonLabels.MAIN_MENU.getLabel())||update.getMessage().getText().equals("/main_menu")) {
                     Client currentClient = clientService.findByChatId(update.getMessage().getChatId());
                     SendMessage sendMessage = new SendMessage();
                     sendMessage.setChatId(update.getMessage().getChatId());

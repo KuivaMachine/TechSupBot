@@ -73,6 +73,21 @@ public class MessageHandler {
                 message.setText("Таблица обновлена");
                 return message;
             }
+            case "/service_support" -> {
+                return sendServiceSupportMessage(currentclient, message);
+            }
+            case "/create_case" -> {
+                return sendCreateCaseMessage(currentclient, message);
+            }
+            case "/join_group" -> {
+                return sendJoinGroupMessage(currentclient, message);
+            }
+            case "/cooperation" -> {
+                return sendHelpCooperationMessage(currentclient, message);
+            }
+            case "/promotions" -> {
+                return sendPromotionsMessage(currentclient, message);
+            }
         }
         //ЕСЛИ НАЖАЛИ КНОПКУ ОТМЕНИТЬ
         if (text.equals(ButtonLabels.CANCEL.getLabel())) {
@@ -145,9 +160,9 @@ public class MessageHandler {
             case "promocode" -> sendPromocode(message, update.getCallbackQuery().getFrom().getId());
             case "order_questions" -> sendOrderQuestionsMessage(currentclient, message);
             case "create_case" -> sendCreateCaseMessage(currentclient, message);
-            case "join_group" -> sendJoinGroupMessage(chatId, message);
-            case "promotions" -> sendPromotionsMessage(chatId, message);
-            case "cooperation" -> sendHelpChoiceMessage(chatId, message);
+            case "join_group" -> sendJoinGroupMessage(currentclient, message);
+            case "promotions" -> sendPromotionsMessage(currentclient, message);
+            case "cooperation" -> sendHelpCooperationMessage(currentclient, message);
             case "call_to_manager" -> callToManager(update.getCallbackQuery().getFrom().getUserName(), message);
             case "5_stars", "4_stars" -> sendGoodAnswer(currentclient, message,callback);
             case "3_stars", "2_stars", "1_stars" -> sendBadAnswer(currentclient, message,callback);
@@ -260,7 +275,7 @@ public class MessageHandler {
                 
                 👉 Мы всегда рады помочь! Не стесняйся обращаться.
                 """);
-        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста","call_to_manager"))));
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19", "call_to_manager"), new Pair<>("Вызвать специалиста", "main_menu"))));
         message.enableMarkdown(true);
         return message;
     }
@@ -538,12 +553,17 @@ public class MessageHandler {
         if(!currentClient.getUsedConstructor()){
             startTimerByCaseConstructor(currentClient);
             currentClient.setUsedConstructor(true);
-            clientService.saveClient(currentClient);
         }
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
         return message;
     }
-    private SendMessage sendJoinGroupMessage(Long chatId, SendMessage message) {
+
+    private SendMessage sendJoinGroupMessage(Client currentClient, SendMessage message) {
+        Long chatId = currentClient.getChatId();
         telegram.deleteLastMessage(chatId);
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
         message.setChatId(chatId.toString());
         message.setText("""
                 🎉 Отлично! 🎉
@@ -558,8 +578,11 @@ public class MessageHandler {
         return message;
     }
 
-    private SendMessage sendPromotionsMessage(Long chatId, SendMessage message) {
+    private SendMessage sendPromotionsMessage(Client currentClient, SendMessage message) {
+        Long chatId = currentClient.getChatId();
         telegram.deleteLastMessage(chatId);
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
@@ -644,8 +667,11 @@ public class MessageHandler {
 
     }
 
-    private SendMessage sendHelpChoiceMessage(Long chatId, SendMessage message) {
+    private SendMessage sendHelpCooperationMessage(Client currentClient, SendMessage message) {
+        Long chatId = currentClient.getChatId();
         telegram.deleteLastMessage(chatId);
+        currentClient.setStatus(ClientStatus.SAVED);
+        clientService.saveClient(currentClient);
         message.setChatId(chatId);
         message.setText("""
                 Привет! 🌟
