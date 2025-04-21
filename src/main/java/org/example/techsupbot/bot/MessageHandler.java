@@ -275,7 +275,7 @@ public class MessageHandler {
                 
                 👉 Мы всегда рады помочь! Не стесняйся обращаться.
                 """);
-        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Назад в главное меню \uD83D\uDD19", "call_to_manager"), new Pair<>("Вызвать специалиста", "main_menu"))));
+        message.setReplyMarkup(createInlineKeyboard(List.of(new Pair<>("Вызвать специалиста", "call_to_manager"), new Pair<>("Назад в главное меню \uD83D\uDD19", "main_menu"))));
         message.enableMarkdown(true);
         return message;
     }
