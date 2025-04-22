@@ -635,7 +635,7 @@ public class MessageHandler {
     private SendMessage sendPromocode(SendMessage message, Long userId) {
 
         if (isUserSubscribed(userId, "@MustHaveCase")) {
-            message.setText(String.format("Ваш промокод на скидку 15%%\uD83D\uDD25 - <b>%s</b>", promo));
+            message.setText(String.format("Ваш промокод на скидку 15%%\uD83D\uDD25 - <code>%s</code>", promo));
             message.setParseMode("HTML");
 
         } else {
